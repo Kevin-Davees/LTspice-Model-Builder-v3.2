@@ -20,7 +20,8 @@ A zero-dependency, single-file HTML tool that turns raw component datasheet numb
 - **Zero dependencies** — one `.html` file, works offline, no build step, no npm
 
 ---
-
+![Screenshot](assets/github_image.png)
+---
 
 ## 🗂 Supported Components
 
@@ -142,6 +143,8 @@ Every generated model includes a standard file header:
 
 Followed by the `.MODEL` or `.SUBCKT` block and a `* Usage:` comment showing how to instantiate the component in a schematic.
 
+---
+![Demo](assets/github.gif)
 ---
 
 ## 📋 Requirements
