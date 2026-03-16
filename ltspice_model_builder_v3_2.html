@@ -1,0 +1,2833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LTspice Model Builder v3.2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-primary: #0d0f0d;
+    --bg-panel: #121512;
+    --bg-surface: #181c18;
+    --bg-input: #1a1e1a;
+    --bg-hover: #202420;
+    --border: #2a332a;
+    --border-bright: #3a4a3a;
+    --accent: #39ff14;
+    --accent-dim: #1a7a0a;
+    --accent-muted: #2a4a1a;
+    --text-primary: #c8d8c0;
+    --text-secondary: #7a9070;
+    --text-muted: #4a5a44;
+    --text-code: #a8e890;
+    --keyword: #5af5ff;
+    --value-color: #ffd080;
+    --comment-color: #5a8050;
+    --error: #ff4444;
+    --warning: #ffaa00;
+    --success: #39ff14;
+    --radius: 4px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── HEADER ───────────────────────────────────────────────── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 16px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .logo {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 18px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-shadow: 0 0 8px var(--accent-dim);
+  }
+  .logo span { color: var(--text-secondary); }
+  .header-tag {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    padding: 2px 6px;
+    border-radius: var(--radius);
+  }
+  .header-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; } 50% { opacity: 0.4; }
+  }
+
+  /* ── MAIN LAYOUT ──────────────────────────────────────────── */
+  .main-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr 420px;
+    flex: 1;
+    overflow: hidden;
+    gap: 0;
+  }
+
+  /* ── PANEL COMMON ─────────────────────────────────────────── */
+  .panel {
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--text-muted);
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  /* ── COMPONENT TREE ───────────────────────────────────────── */
+  #search-box {
+    margin: 8px 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    padding: 5px 10px;
+    width: calc(100% - 20px);
+    outline: none;
+    transition: border-color .2s;
+    flex-shrink: 0;
+  }
+  #search-box:focus { border-color: var(--accent-dim); }
+  #search-box::placeholder { color: var(--text-muted); }
+
+  #comp-tree {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+  #comp-tree::-webkit-scrollbar { width: 4px; }
+  #comp-tree::-webkit-scrollbar-track { background: transparent; }
+  #comp-tree::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .cat-header {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    padding: 8px 14px 4px;
+    text-transform: uppercase;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .cat-header::before {
+    content: '▾';
+    font-size: 10px;
+    transition: transform .2s;
+  }
+  .cat-header.collapsed::before { transform: rotate(-90deg); }
+  .cat-items { overflow: hidden; }
+  .cat-items.collapsed { display: none; }
+
+  .comp-item {
+    padding: 5px 14px 5px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: all .15s;
+    border-left: 2px solid transparent;
+  }
+  .comp-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .comp-item.active {
+    background: var(--accent-muted);
+    color: var(--accent);
+    border-left-color: var(--accent);
+  }
+
+  /* ── CENTER PARAMS ────────────────────────────────────────── */
+  #params-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-primary);
+  }
+
+  .params-top {
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .field-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .field-group label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+  .field-group input, .field-group select {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    padding: 4px 8px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .field-group input:focus, .field-group select:focus { border-color: var(--accent-dim); }
+  .field-group select { cursor: pointer; }
+
+  #comp-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 1px;
+    margin-right: auto;
+  }
+
+  /* ── TABS ─────────────────────────────────────────────────── */
+  .tabs-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-panel);
+    flex-shrink: 0;
+    overflow-x: auto;
+  }
+  .tabs-bar::-webkit-scrollbar { height: 2px; }
+  .tabs-bar::-webkit-scrollbar-thumb { background: var(--border); }
+  .tab-btn {
+    padding: 8px 16px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    cursor: pointer;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .tab-btn:hover { color: var(--text-primary); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── FORM CONTENT ─────────────────────────────────────────── */
+  #form-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+  #form-content::-webkit-scrollbar { width: 4px; }
+  #form-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .params-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 10px;
+  }
+
+  .param-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 12px;
+    transition: border-color .2s;
+  }
+  .param-row:hover { border-color: var(--border-bright); }
+  .param-row.required { border-left: 2px solid var(--accent-dim); }
+
+  .param-label {
+    flex: 1;
+    min-width: 0;
+  }
+  .param-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .param-unit {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .param-required-badge {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--accent);
+    background: var(--accent-muted);
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+
+  .param-input {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    padding: 4px 8px;
+    width: 110px;
+    outline: none;
+    text-align: right;
+    transition: border-color .2s;
+  }
+  .param-input:focus { border-color: var(--accent-dim); }
+
+  .param-select {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
+    padding: 4px 6px;
+    width: 110px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .info-btn {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all .15s;
+  }
+  .info-btn:hover { border-color: var(--accent-dim); color: var(--accent); }
+
+  /* ── GENERATE BUTTON ──────────────────────────────────────── */
+  .generate-bar {
+    padding: 10px 16px;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .btn-generate {
+    background: var(--accent);
+    color: #000;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border: none;
+    border-radius: var(--radius);
+    padding: 8px 24px;
+    cursor: pointer;
+    transition: all .15s;
+    box-shadow: 0 0 12px rgba(57,255,20,0.3);
+  }
+  .btn-generate:hover { box-shadow: 0 0 20px rgba(57,255,20,0.5); transform: translateY(-1px); }
+  .btn-generate:active { transform: translateY(0); }
+
+  .btn-example {
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .btn-example:hover { border-color: var(--border-bright); color: var(--text-primary); }
+
+  /* ── OUTPUT PANEL ─────────────────────────────────────────── */
+  #output-panel {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-panel);
+    border-left: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .output-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .output-tab-btn {
+    padding: 8px 16px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    cursor: pointer;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    transition: all .15s;
+    text-transform: uppercase;
+  }
+  .output-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .output-tab-btn:hover { color: var(--text-primary); }
+
+  .output-toolbar {
+    display: flex;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .btn-icon {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-secondary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: all .15s;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .btn-icon:hover { border-color: var(--border-bright); color: var(--text-primary); }
+  .btn-icon.primary-action { border-color: var(--accent-dim); color: var(--accent); }
+  .btn-icon.primary-action:hover { background: var(--accent-muted); }
+
+  #spice-output {
+    flex: 1;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', 'Share Tech Mono', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    padding: 12px 14px;
+    background: var(--bg-primary);
+  }
+  #spice-output::-webkit-scrollbar { width: 4px; }
+  #spice-output::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  #log-output {
+    flex: 1;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    line-height: 1.8;
+    padding: 12px 14px;
+    background: var(--bg-primary);
+    display: none;
+  }
+  #log-output::-webkit-scrollbar { width: 4px; }
+  #log-output::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* SPICE syntax colors */
+  .sp-comment { color: var(--comment-color); }
+  .sp-keyword { color: var(--keyword); font-weight: 500; }
+  .sp-value { color: var(--value-color); }
+  .sp-node { color: #c0a0ff; }
+  .sp-param { color: #80c8ff; }
+  .sp-plain { color: var(--text-code); }
+
+  /* Log colors */
+  .log-ok { color: var(--success); }
+  .log-warn { color: var(--warning); }
+  .log-err { color: var(--error); }
+  .log-info { color: var(--text-secondary); }
+
+  /* Validation strip */
+  #validation-strip {
+    min-height: 32px;
+    padding: 6px 14px;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Placeholder */
+  .placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted);
+    gap: 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    text-align: center;
+  }
+  .placeholder .icon {
+    font-size: 36px;
+    opacity: 0.3;
+  }
+
+  /* Tooltip */
+  .tooltip-popup {
+    position: fixed;
+    z-index: 999;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-bright);
+    border-radius: var(--radius);
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--text-primary);
+    max-width: 240px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .15s;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  }
+  .tooltip-popup.visible { opacity: 1; }
+
+  /* Notification */
+  #notif {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--bg-surface);
+    border: 1px solid var(--accent-dim);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    font-size: 13px;
+    color: var(--accent);
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all .2s;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  #notif.show { opacity: 1; transform: translateY(0); }
+
+  /* Empty state */
+  .no-comp {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .scanline {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+
+<header>
+  <div class="logo">LT<span>spice</span>MODEL<span>::</span>BUILDER</div>
+  <div class="header-tag">v3.2</div>
+  <div class="header-tag">25+ COMPONENTS</div>
+  <div class="header-right">
+    <div class="status-dot"></div>
+    <span style="font-size:11px;color:var(--text-muted);letter-spacing:1px;">READY</span>
+  </div>
+</header>
+
+<div class="main-layout">
+  <!-- ── COMPONENT SELECTOR ── -->
+  <div class="panel">
+    <div class="panel-title">Component Library</div>
+    <input type="text" id="search-box" placeholder="Search components..." autocomplete="off">
+    <div id="comp-tree"></div>
+  </div>
+
+  <!-- ── PARAM FORM ── -->
+  <div id="params-panel">
+    <div class="params-top">
+      <div id="comp-title">— SELECT COMPONENT —</div>
+      <div class="field-group">
+        <label>Part#</label>
+        <input type="text" id="part-number" placeholder="e.g. IRF540N" style="width:110px">
+      </div>
+      <div class="field-group">
+        <label>Mfr</label>
+        <input type="text" id="manufacturer" placeholder="e.g. Infineon" style="width:100px">
+      </div>
+      <div class="field-group">
+        <label>Model</label>
+        <select id="model-level">
+          <option value="3">Level 3</option>
+          <option value="1">Level 1</option>
+        </select>
+      </div>
+    </div>
+    <div class="tabs-bar" id="tabs-bar"></div>
+    <div id="form-content">
+      <div class="no-comp">
+        <div style="font-size:32px;opacity:0.3">⚡</div>
+        <div>Select a component from the library</div>
+      </div>
+    </div>
+    <div class="generate-bar">
+      <button class="btn-generate" onclick="generateModel()">⚡ Generate SPICE Model</button>
+      <button class="btn-example" onclick="loadExample()">Load Example</button>
+    </div>
+  </div>
+
+  <!-- ── OUTPUT ── -->
+  <div id="output-panel">
+    <div class="output-tabs">
+      <button class="output-tab-btn active" onclick="switchOutputTab('spice', this)">SPICE Model</button>
+      <button class="output-tab-btn" onclick="switchOutputTab('log', this)">Derivation Log</button>
+    </div>
+    <div class="output-toolbar">
+      <button class="btn-icon primary-action" onclick="copyModel()">⎘ Copy</button>
+      <button class="btn-icon primary-action" onclick="downloadLib()">↓ .lib</button>
+      <button class="btn-icon" onclick="downloadAsc()">↓ .asc</button>
+      <span style="margin-left:auto;font-size:10px;color:var(--text-muted);font-family:'Share Tech Mono',monospace" id="line-count"></span>
+    </div>
+    <div id="spice-output">
+      <div class="placeholder">
+        <div class="icon">📄</div>
+        <div>Generated model will appear here</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:8px">Fill parameters → Click Generate</div>
+      </div>
+    </div>
+    <div id="log-output"></div>
+    <div id="validation-strip">
+      <span id="validation-msg" style="color:var(--text-muted)">No model generated yet</span>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip-popup" id="tooltip"></div>
+<div id="notif"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// COMPONENT DEFINITIONS
+// ═══════════════════════════════════════════════════════════════
+const COMPONENTS = {
+  "Passives": [
+    "Resistor","Capacitor (Ceramic)","Capacitor (Electrolytic)",
+    "Capacitor (Film)","Inductor","Ferrite Bead","Crystal (XTAL)"
+  ],
+  "Protection": ["Varistor (MOV)","Thermistor (NTC)","Thermistor (PTC)"],
+  "Diodes": [
+    "Diode (Signal)","Diode (Schottky)","Diode (Zener)",
+    "TVS Diode","Rectifier Diode","LED","Photodiode"
+  ],
+  "Transistors": [
+    "BJT (NPN)","BJT (PNP)","MOSFET (N-Channel)","MOSFET (P-Channel)",
+    "IGBT","SCR / Thyristor","TRIAC","GaN FET","SiC MOSFET"
+  ],
+  "ICs": ["Op-Amp","Comparator","LDO Regulator"]
+};
+
+// [key, label, unit, required, tooltip, options?]
+const PARAMS = {
+  "Resistor": {
+    "Electrical": [
+      ["resistance","Resistance","Ω",true,"Nominal resistance value (e.g. 10k, 4.7M, 100m)"],
+      ["tc1","TC1","ppm/°C",false,"Linear temperature coefficient"],
+      ["tc2","TC2","ppm/°C²",false,"Quadratic temperature coefficient"],
+      ["vc","Voltage Coefficient","ppm/V",false,"Voltage coefficient (non-linearity)"]
+    ],
+    "Parasitics": [
+      ["ls","Series Inductance","H",false,"Parasitic series inductance (e.g. 2n, 10n)"],
+      ["cp","Shunt Capacitance","F",false,"Parasitic shunt capacitance (e.g. 0.5p, 1p)"]
+    ],
+    "Ratings": [
+      ["pwr","Power Rating","W",false,"Maximum power dissipation"],
+      ["vmax","Max Voltage","V",false,"Maximum operating voltage"]
+    ]
+  },
+  "Capacitor (Ceramic)": {
+    "Electrical": [
+      ["cap","Capacitance","F",true,"Nominal capacitance (e.g. 100n, 10u, 1p)"],
+      ["dielectric","Dielectric","",false,"Dielectric type",["X7R","X5R","C0G","Y5V","NP0"]],
+      ["tcc","Temp Coefficient","ppm/°C",false,"Capacitance temperature coefficient"],
+      ["vcoeff","Voltage Coefficient","%",false,"Capacitance loss at rated voltage"]
+    ],
+    "Parasitics": [
+      ["esr","ESR","Ω",false,"Equivalent series resistance (e.g. 10m, 0.1)"],
+      ["esl","ESL","H",false,"Equivalent series inductance (e.g. 1n, 0.5n)"],
+      ["srf","SRF","Hz",false,"Self-resonant frequency (e.g. 10M, 500M)"]
+    ],
+    "Ratings": [
+      ["vrated","Voltage Rating","V",false,"Maximum DC voltage"]
+    ]
+  },
+  "Capacitor (Electrolytic)": {
+    "Electrical": [
+      ["cap","Capacitance","F",true,"Nominal capacitance (e.g. 100u, 1m, 4700u)"],
+      ["esr","ESR @ 100kHz","Ω",true,"Equivalent series resistance at 100kHz (e.g. 50m, 200m)"]
+    ],
+    "Parasitics": [
+      ["esl","ESL","H",false,"Equivalent series inductance (e.g. 5n, 20n)"],
+      ["leakage","Leakage Current","A",false,"Leakage current at rated voltage (e.g. 5u, 10u)"]
+    ],
+    "Ratings": [
+      ["vrated","Voltage Rating","V",true,"Maximum DC voltage"],
+      ["ripple","Ripple Current","A",false,"Maximum RMS ripple current (e.g. 500m, 2)"]
+    ]
+  },
+  "Capacitor (Film)": {
+    "Electrical": [
+      ["cap","Capacitance","F",true,"Nominal capacitance (e.g. 100n, 1u)"],
+      ["tcc","Temp Coefficient","ppm/°C",false,"Very low for film, typically ±200ppm"]
+    ],
+    "Parasitics": [
+      ["esr","ESR","Ω",false,"Equivalent series resistance"],
+      ["esl","ESL","H",false,"Equivalent series inductance"],
+      ["srf","SRF","Hz",false,"Self-resonant frequency"]
+    ],
+    "Ratings": [
+      ["vrated","Voltage Rating","V",false,"Maximum DC voltage"]
+    ]
+  },
+  "Inductor": {
+    "Electrical": [
+      ["l","Inductance","H",true,"Nominal inductance (e.g. 10u, 100n, 1m)"],
+      ["dcr","DCR","Ω",true,"DC resistance (e.g. 50m, 0.1, 1)"],
+      ["q","Q Factor","",false,"Quality factor at test frequency"],
+      ["q_freq","Q Test Frequency","Hz",false,"Frequency at which Q is measured (e.g. 1M, 100k)"]
+    ],
+    "Parasitics": [
+      ["srf","SRF","Hz",false,"Self-resonant frequency (e.g. 50M, 200M)"]
+    ],
+    "Ratings": [
+      ["isat","Saturation Current","A",false,"Current at which inductance drops by 30%"],
+      ["irms","RMS Current","A",false,"Maximum RMS current"]
+    ]
+  },
+  "Ferrite Bead": {
+    "Electrical": [
+      ["z100","Impedance @100MHz","Ω",true,"Impedance at 100MHz (e.g. 600, 1000)"],
+      ["dcr","DCR","Ω",true,"DC resistance (e.g. 200m, 0.3)"],
+      ["r100","R @100MHz","Ω",false,"Resistive component at 100MHz"],
+      ["x100","X @100MHz","Ω",false,"Reactive component at 100MHz"]
+    ],
+    "Ratings": [
+      ["imax","Max Current","A",false,"Maximum rated current"],
+      ["vrated","Voltage Rating","V",false,"Maximum voltage"]
+    ]
+  },
+  "Crystal (XTAL)": {
+    "Electrical": [
+      ["fs","Series Resonance","Hz",true,"Series resonant frequency (e.g. 8M, 32.768k)"],
+      ["fp","Parallel Resonance","Hz",false,"Parallel resonant frequency"],
+      ["rs","Motional Resistance","Ω",true,"ESR / series resistance (e.g. 7, 50)"],
+      ["q","Q Factor","",true,"Quality factor (typically 10000-100000)"],
+      ["co","Shunt Capacitance","F",true,"Parallel plate capacitance (e.g. 3p, 5p)"]
+    ]
+  },
+  "Varistor (MOV)": {
+    "Electrical": [
+      ["vnom","Nominal Voltage","V",true,"DC clamping voltage at 1mA"],
+      ["vcl","Clamping Voltage","V",true,"Clamping voltage at rated surge current"],
+      ["icl","Surge Current","A",true,"Peak surge current (8/20µs pulse)"],
+      ["alpha","Non-linearity Alpha","",false,"V-I curve exponent (typically 25-50)"],
+      ["c","Capacitance","F",false,"Junction capacitance (e.g. 100p, 1n)"]
+    ],
+    "Ratings": [
+      ["vac","AC Voltage Rating","V",false,"RMS AC voltage"],
+      ["energy","Energy Rating","J",false,"Maximum energy absorption"]
+    ]
+  },
+  "Thermistor (NTC)": {
+    "Electrical": [
+      ["r25","Resistance @25°C","Ω",true,"Nominal resistance at 25°C (e.g. 10k, 100k)"],
+      ["b","B Constant","K",true,"Beta value (typically 3000-5000)"],
+      ["tol","Tolerance","%",false,"Resistance tolerance"]
+    ]
+  },
+  "Thermistor (PTC)": {
+    "Electrical": [
+      ["r25","Resistance @25°C","Ω",true,"Nominal resistance at 25°C"],
+      ["rmin","Minimum Resistance","Ω",false,"Minimum resistance in PTC curve"],
+      ["tc","Curie Temperature","°C",false,"Temperature of rapid resistance increase"]
+    ]
+  },
+  "Diode (Signal)": {
+    "Electrical": [
+      ["is","Saturation Current","A",false,"Can be derived from Vf/If below (e.g. 2.5n)"],
+      ["n","Ideality Factor","",false,"Typically 1.0–2.0"],
+      ["rs","Series Resistance","Ω",false,"Bulk ohmic resistance"],
+      ["vf","Forward Voltage","V",false,"Forward voltage at test current — used to derive Is"],
+      ["if_test","Test Current","A",false,"Current at which Vf is measured (e.g. 10m, 100m)"]
+    ],
+    "Parasitics": [
+      ["cjo","Junction Capacitance","F",false,"Zero-bias junction capacitance (e.g. 4p, 10p)"],
+      ["vj","Junction Potential","V",false,"Contact potential (0.5–0.9V)"],
+      ["tt","Transit Time","s",false,"Minority carrier lifetime — related to trr (e.g. 5n)"]
+    ],
+    "Ratings": [
+      ["bv","Breakdown Voltage","V",false,"Reverse breakdown voltage"]
+    ]
+  },
+  "Diode (Schottky)": {
+    "Electrical": [
+      ["is","Saturation Current","A",false,"Typically much larger than PN diode (e.g. 10u, 1n)"],
+      ["n","Ideality Factor","",false,"Typically 1.0–1.2 for Schottky"],
+      ["rs","Series Resistance","Ω",false,"Bulk series resistance"],
+      ["vf","Forward Voltage","V",false,"Forward voltage (typically 0.2–0.4V)"],
+      ["if_test","Test Current","A",false,"Current for Vf measurement"]
+    ],
+    "Parasitics": [
+      ["cjo","Junction Capacitance","F",false,"Junction capacitance (e.g. 50p, 200p)"],
+      ["vj","Junction Potential","V",false,"Barrier potential (0.3–0.6V)"]
+    ],
+    "Ratings": [
+      ["bv","Breakdown Voltage","V",false,"Reverse breakdown voltage"],
+      ["vrrm","Repetitive Reverse Voltage","V",false,"Max repetitive reverse voltage"]
+    ]
+  },
+  "Diode (Zener)": {
+    "Electrical": [
+      ["bv","Zener Voltage","V",true,"Breakdown/zener voltage (e.g. 5.1, 12, 3.3)"],
+      ["ibv","Test Current","A",true,"Zener current at breakdown (e.g. 5m, 20m)"],
+      ["rs","Dynamic Resistance","Ω",false,"Incremental resistance at Iz"],
+      ["is","Saturation Current","A",false,"Typically 1e-14"]
+    ],
+    "Parasitics": [
+      ["cjo","Junction Capacitance","F",false,"Zero-bias capacitance (e.g. 100p)"],
+      ["vj","Junction Potential","V",false,"Typically 0.6–0.8V"]
+    ],
+    "Ratings": [
+      ["pwr","Power Rating","W",false,"Maximum power dissipation"]
+    ]
+  },
+  "TVS Diode": {
+    "Electrical": [
+      ["bv","Breakdown Voltage","V",true,"Reverse standoff/breakdown voltage"],
+      ["vclamp","Clamping Voltage","V",true,"Peak clamping voltage at Ipp"],
+      ["iclamp","Peak Current","A",true,"Peak pulse current (e.g. 10, 100)"],
+      ["bidirectional","Bidirectional","",false,"Bidirectional configuration",["No","Yes"]],
+      ["c","Capacitance","F",false,"Junction capacitance (e.g. 50p, 300p)"]
+    ],
+    "Ratings": [
+      ["ppk","Peak Power","W",false,"Peak pulse power rating"]
+    ]
+  },
+  "Rectifier Diode": {
+    "Electrical": [
+      ["is","Saturation Current","A",false,"Typically 1e-9 to 1e-7"],
+      ["n","Ideality Factor","",false,"Typically 1.5–2.0"],
+      ["rs","Series Resistance","Ω",false,"Bulk resistance"],
+      ["vf","Forward Voltage","V",false,"Vf at rated current (used to derive Is)"],
+      ["if_test","Test Current","A",false,"Rated forward current"]
+    ],
+    "Parasitics": [
+      ["cjo","Junction Capacitance","F",false,"Junction capacitance (e.g. 50p, 200p)"],
+      ["tt","Transit Time","s",false,"Reverse recovery related (e.g. 10u, 100n)"]
+    ],
+    "Ratings": [
+      ["bv","Reverse Voltage","V",false,"Maximum reverse voltage (PIV)"],
+      ["if_max","Max Forward Current","A",false,"Maximum average forward current"]
+    ]
+  },
+  "LED": {
+    "Electrical": [
+      ["vf","Forward Voltage","V",true,"Forward voltage at test current (e.g. 2.0, 3.2)"],
+      ["if_test","Test Current","A",true,"Current for Vf measurement (e.g. 20m, 10m)"],
+      ["n","Ideality Factor","",false,"Typically 1.8–2.0 for LEDs"],
+      ["rs","Series Resistance","Ω",false,"Dynamic series resistance"]
+    ],
+    "Parasitics": [
+      ["cjo","Junction Capacitance","F",false,"LED capacitance (e.g. 20p, 100p)"]
+    ],
+    "Ratings": [
+      ["if_max","Max Forward Current","A",false,"Maximum continuous current (e.g. 20m, 1)"],
+      ["wavelength","Wavelength","nm",false,"Peak emission wavelength (reference only)"]
+    ]
+  },
+  "Photodiode": {
+    "Electrical": [
+      ["is","Dark Current","A",false,"Reverse leakage (dark current) (e.g. 1n, 10n)"],
+      ["n","Ideality Factor","",false,"Typically 1.0"],
+      ["rs","Series Resistance","Ω",false,"Bulk resistance"],
+      ["responsivity","Responsivity","A/W",false,"At peak wavelength (e.g. 0.5, 0.8)"]
+    ],
+    "Parasitics": [
+      ["cjo","Junction Capacitance","F",false,"At zero bias (e.g. 5p, 50p)"],
+      ["vj","Junction Potential","V",false,"Typically 0.5V"]
+    ],
+    "Ratings": [
+      ["bv","Reverse Voltage","V",false,"Maximum reverse bias voltage"],
+      ["peak_wavelength","Peak Wavelength","nm",false,"Peak sensitivity wavelength"]
+    ]
+  },
+  "BJT (NPN)": {
+    "Electrical": [
+      ["bf","Forward Beta (hFE)","",true,"DC current gain (e.g. 100, 300, 500)"],
+      ["is","Saturation Current","A",false,"Transport saturation current (e.g. 1.81e-14)"],
+      ["vaf","Early Voltage","V",false,"Forward Early voltage (e.g. 74, 100)"],
+      ["ikf","Knee Current","A",false,"High-current beta roll-off (e.g. 200m, 1)"],
+      ["nf","Forward Emission Coeff","",false,"Ideality factor — typically 1.0"]
+    ],
+    "Parasitics": [
+      ["cje","Cje","F",false,"B-E zero-bias capacitance (e.g. 22p)"],
+      ["cjc","Cjc","F",false,"B-C zero-bias capacitance (e.g. 8p)"],
+      ["tf","Forward Transit Time","s",false,"Determines fT (e.g. 350p, 1n)"],
+      ["rc","Rc","Ω",false,"Collector bulk resistance"],
+      ["re","Re","Ω",false,"Emitter bulk resistance"],
+      ["rb","Rb","Ω",false,"Base bulk resistance"]
+    ],
+    "Thermal": [
+      ["rth_jc","Rth(j-c)","°C/W",false,"Junction-to-case thermal resistance"]
+    ],
+    "Ratings": [
+      ["vceo","Vceo","V",false,"Collector-emitter breakdown voltage"],
+      ["ic_max","Ic Max","A",false,"Maximum collector current"]
+    ]
+  },
+  "BJT (PNP)": {
+    "Electrical": [
+      ["bf","Forward Beta (hFE)","",true,"DC current gain"],
+      ["is","Saturation Current","A",false,"Transport saturation current (e.g. 1e-14)"],
+      ["vaf","Early Voltage","V",false,"Forward Early voltage"],
+      ["ikf","Knee Current","A",false,"High-current beta roll-off"],
+      ["nf","Forward Emission Coeff","",false,"Ideality factor"]
+    ],
+    "Parasitics": [
+      ["cje","Cje","F",false,"B-E zero-bias capacitance"],
+      ["cjc","Cjc","F",false,"B-C zero-bias capacitance"],
+      ["tf","Forward Transit Time","s",false,"Determines fT"],
+      ["rc","Rc","Ω",false,"Collector resistance"],
+      ["re","Re","Ω",false,"Emitter resistance"],
+      ["rb","Rb","Ω",false,"Base resistance"]
+    ],
+    "Ratings": [
+      ["vceo","Vceo","V",false,"Collector-emitter breakdown"],
+      ["ic_max","Ic Max","A",false,"Maximum collector current"]
+    ]
+  },
+  "MOSFET (N-Channel)": {
+    "Electrical": [
+      ["vth","Threshold Voltage","V",true,"Gate threshold voltage (e.g. 2.0, 4.5)"],
+      ["rdson","RDS(on)","Ω",true,"On-resistance (e.g. 44m, 8m, 0.1)"],
+      ["vgs_rdson","Vgs for RDS(on)","V",true,"Gate voltage for RDS(on) spec (e.g. 10)"],
+      ["id_rdson","Id for RDS(on)","A",false,"Drain current at RDS(on) test point — informational; used for KP consistency check"],
+      ["lambda","Lambda","1/V",false,"Channel length modulation (0.01–0.1)"]
+    ],
+    "Capacitances": [
+      ["ciss","Ciss","F",true,"Input capacitance (e.g. 1700p, 5000p)"],
+      ["coss","Coss","F",true,"Output capacitance (e.g. 300p, 800p)"],
+      ["crss","Crss","F",true,"Reverse transfer capacitance (e.g. 130p)"],
+      ["qg","Gate Charge Qg","C",false,"Total gate charge (e.g. 30n, 100n)"]
+    ],
+    "Body Diode": [
+      ["vf","Diode Vf","V",false,"Body diode forward voltage (e.g. 0.8, 1.2)"],
+      ["trr","Reverse Recovery","s",false,"Body diode trr (e.g. 100n, 250n)"]
+    ],
+    "Thermal": [
+      ["rth_jc","Rth(j-c)","°C/W",false,"Junction to case thermal resistance"],
+      ["rth_cs","Rth(c-s)","°C/W",false,"Case to sink thermal resistance"]
+    ],
+    "Ratings": [
+      ["vds_max","Vds Max","V",false,"Maximum drain-source voltage"],
+      ["id_max","Id Max","A",false,"Maximum drain current"],
+      ["pd_max","Pd Max","W",false,"Maximum power dissipation"]
+    ]
+  },
+  "MOSFET (P-Channel)": {
+    "Electrical": [
+      ["vth","Threshold Voltage","V",true,"Gate threshold — enter POSITIVE magnitude (e.g. 2.5)"],
+      ["rdson","RDS(on)","Ω",true,"On-resistance (e.g. 60m, 120m)"],
+      ["vgs_rdson","Vgs for RDS(on)","V",true,"Magnitude of gate voltage (e.g. 10)"],
+      ["id_rdson","Id for RDS(on)","A",false,"Magnitude of drain current at RDS(on) test point — informational"],
+      ["lambda","Lambda","1/V",false,"Channel length modulation"]
+    ],
+    "Capacitances": [
+      ["ciss","Ciss","F",true,"Input capacitance"],
+      ["coss","Coss","F",true,"Output capacitance"],
+      ["crss","Crss","F",true,"Reverse transfer capacitance"]
+    ],
+    "Body Diode": [
+      ["vf","Diode Vf","V",false,"Body diode forward voltage"],
+      ["trr","Reverse Recovery","s",false,"Body diode trr"]
+    ],
+    "Ratings": [
+      ["vds_max","Vds Max","V",false,"Maximum drain-source voltage (magnitude)"],
+      ["id_max","Id Max","A",false,"Maximum drain current (magnitude)"]
+    ]
+  },
+  "IGBT": {
+    "Electrical": [
+      ["vth","Threshold Voltage","V",true,"Gate threshold voltage (e.g. 5.5, 6.0)"],
+      ["vce_sat","Vce(sat)","V",true,"Collector-emitter saturation voltage"],
+      ["ic_vce","Ic at Vce(sat)","A",true,"Collector current for Vce(sat) spec"],
+      ["vge","Vge for Vce(sat)","V",true,"Gate voltage for Vce(sat) measurement"],
+      ["tf","Fall Time","s",false,"Current fall time (e.g. 100n, 500n)"]
+    ],
+    "Capacitances": [
+      ["cies","Cies","F",false,"Input capacitance (e.g. 1600p)"],
+      ["coes","Coes","F",false,"Output capacitance"],
+      ["cres","Cres","F",false,"Reverse transfer capacitance"]
+    ],
+    "Ratings": [
+      ["vce_max","Vce Max","V",false,"Maximum collector-emitter voltage"],
+      ["ic_max","Ic Max","A",false,"Maximum collector current"],
+      ["pd_max","Pd Max","W",false,"Maximum power dissipation"]
+    ]
+  },
+  "SCR / Thyristor": {
+    "Electrical": [
+      ["vt","Threshold Voltage","V",true,"On-state threshold voltage (e.g. 1.0)"],
+      ["rs","On-state Resistance","Ω",true,"On-state slope resistance (e.g. 20m)"],
+      ["vdrm","Blocking Voltage","V",true,"Maximum forward blocking voltage"],
+      ["ih","Holding Current","A",false,"Holding current (e.g. 5m, 50m)"],
+      ["il","Latching Current","A",false,"Latching current (e.g. 10m, 100m)"]
+    ],
+    "Ratings": [
+      ["it_avg","Avg Current","A",false,"Average on-state current"],
+      ["itsm","Surge Current","A",false,"Peak surge current (8.3ms)"]
+    ]
+  },
+  "TRIAC": {
+    "Electrical": [
+      ["vt","Threshold Voltage","V",true,"On-state threshold voltage"],
+      ["rs","On-state Resistance","Ω",true,"On-state slope resistance"],
+      ["vdrm","Blocking Voltage","V",true,"Maximum blocking voltage"],
+      ["ih","Holding Current","A",false,"Holding current"],
+      ["il","Latching Current","A",false,"Latching current"]
+    ],
+    "Ratings": [
+      ["it_rms","RMS Current","A",false,"Maximum RMS on-state current"]
+    ]
+  },
+  "GaN FET": {
+    "Electrical": [
+      ["vth","Threshold Voltage","V",true,"Gate threshold (typically -3 to +3V for eGaN)"],
+      ["rdson","RDS(on)","Ω",true,"On-resistance (e.g. 7m, 15m, 50m)"],
+      ["vgs_rdson","Vgs for RDS(on)","V",true,"Gate bias for RDS(on) measurement"],
+      ["id_rdson","Id for RDS(on)","A",false,"Drain current for spec — informational"],
+      ["lambda","Lambda","1/V",false,"Channel length modulation"]
+    ],
+    "Capacitances": [
+      ["ciss","Ciss","F",false,"Input capacitance"],
+      ["coss","Coss","F",false,"Output capacitance"],
+      ["crss","Crss","F",false,"Reverse transfer capacitance"]
+    ],
+    "Ratings": [
+      ["vds_max","Vds Max","V",false,"Max drain voltage"],
+      ["id_max","Id Max","A",false,"Max drain current"]
+    ]
+  },
+  "SiC MOSFET": {
+    "Electrical": [
+      ["vth","Threshold Voltage","V",true,"Gate threshold (typically 2–4V)"],
+      ["rdson","RDS(on)","Ω",true,"On-resistance (e.g. 80m, 160m)"],
+      ["vgs_rdson","Vgs for RDS(on)","V",true,"Gate voltage for spec (e.g. 20)"],
+      ["id_rdson","Id for RDS(on)","A",false,"Current for spec — informational"],
+      ["lambda","Lambda","1/V",false,"Channel length modulation"]
+    ],
+    "Capacitances": [
+      ["ciss","Ciss","F",false,"Input capacitance"],
+      ["coss","Coss","F",false,"Output capacitance"],
+      ["crss","Crss","F",false,"Reverse transfer capacitance"]
+    ],
+    "Body Diode": [
+      ["vf","Diode Vf","V",false,"Body diode Vf (SiC typically 2.5–4V)"],
+      ["trr","Reverse Recovery","s",false,"Very fast for SiC (e.g. 20n)"]
+    ],
+    "Ratings": [
+      ["vds_max","Vds Max","V",false,"High voltage rated (e.g. 650, 1200)"],
+      ["id_max","Id Max","A",false,"Max drain current"],
+      ["tj_max","Tj Max","°C",false,"Max junction temperature (e.g. 150, 175)"]
+    ]
+  },
+  "Op-Amp": {
+    "Electrical": [
+      ["avol","Open Loop Gain","dB",true,"DC open-loop gain (e.g. 100, 120)"],
+      ["gbw","Gain Bandwidth","Hz",true,"Unity-gain bandwidth (e.g. 1M, 10M)"],
+      ["sr","Slew Rate","V/µs",true,"Output slew rate (e.g. 0.6, 13, 100)"],
+      ["vos","Offset Voltage","V",false,"Input offset voltage (e.g. 2m, 1m, 50u)"],
+      ["ib","Input Bias Current","A",false,"Input bias current (e.g. 45n, 1p)"],
+      ["rout","Output Resistance","Ω",false,"Open-loop output resistance (e.g. 40, 75)"],
+      ["cmrr","CMRR","dB",false,"Common mode rejection ratio (e.g. 80, 100)"],
+      ["psrr","PSRR","dB",false,"Power supply rejection ratio (e.g. 80, 100)"]
+    ],
+    "Supply": [
+      ["vcc","Positive Supply","V",false,"Positive supply voltage (e.g. 15, 5)"],
+      ["vee","Negative Supply","V",false,"Negative supply (e.g. -15, 0)"],
+      ["voh","Output High","V",false,"Maximum output swing (e.g. 14, 4.9)"],
+      ["vol","Output Low","V",false,"Minimum output swing (e.g. -14, 0.1)"]
+    ]
+  },
+  "Comparator": {
+    "Electrical": [
+      ["avol","Open Loop Gain","dB",true,"Typically very high, e.g. 100dB+"],
+      ["tpd","Propagation Delay","s",false,"Response time (e.g. 7n, 100n)"],
+      ["vos","Offset Voltage","V",false,"Input offset voltage"],
+      ["ib","Input Bias Current","A",false,"Input bias current"],
+      ["rout","Output Resistance","Ω",false,"Output impedance (open drain)"]
+    ],
+    "Supply": [
+      ["vcc","Supply Voltage","V",false,"Supply voltage (e.g. 5, 12)"],
+      ["voh","Output High","V",false,"Output high level (or open-drain pull-up)"],
+      ["vol","Output Low","V",false,"Output low saturation voltage (e.g. 0.3)"]
+    ]
+  },
+  "LDO Regulator": {
+    "Electrical": [
+      ["vout","Output Voltage","V",true,"Regulated output voltage (e.g. 3.3, 5.0)"],
+      ["vdo","Dropout Voltage","V",true,"Minimum input-output differential (e.g. 300m, 100m)"],
+      ["iq","Quiescent Current","A",false,"Ground/quiescent current (e.g. 50u, 1m)"],
+      ["psrr","PSRR","dB",false,"Power supply rejection ratio (e.g. 60, 75)"],
+      ["vout_acc","Output Accuracy","%",false,"Output voltage accuracy (e.g. 1, 2)"]
+    ],
+    "Parasitics": [
+      ["esr_min","Min ESR","Ω",false,"Minimum stable output cap ESR (e.g. 10m)"],
+      ["esr_max","Max ESR","Ω",false,"Maximum stable output cap ESR (e.g. 1)"]
+    ],
+    "Ratings": [
+      ["vin_max","Vin Max","V",false,"Maximum input voltage"],
+      ["iout_max","Iout Max","A",false,"Maximum output current (e.g. 300m, 1, 3)"]
+    ]
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// DERIVATION ENGINE
+// ═══════════════════════════════════════════════════════════════
+
+// formatSI: human-readable SI suffixes — use ONLY for element value lines and display
+function formatSI(val) {
+  if (val === 0) return "0";
+  if (!isFinite(val) || isNaN(val)) return "0";
+  const abs = Math.abs(val);
+  const tiers = [
+    [1e12,'T'],[1e9,'G'],[1e6,'Meg'],[1e3,'k'],
+    [1,''],[1e-3,'m'],[1e-6,'u'],[1e-9,'n'],[1e-12,'p'],[1e-15,'f']
+  ];
+  for (const [factor, pfx] of tiers) {
+    if (abs >= factor) {
+      const num = val / factor;
+      const s = parseFloat(num.toPrecision(4)).toString();
+      return s + pfx;
+    }
+  }
+  return val.toExponential(3);
+}
+
+// formatSci: ALWAYS scientific notation — required for .MODEL parameter values in LTspice
+// SI suffixes are NOT allowed inside .MODEL ( ) blocks
+function formatSci(val) {
+  if (val === 0) return '0';
+  if (!isFinite(val) || isNaN(val)) return '0';
+  return val.toExponential(4);
+}
+
+function parseSI(str) {
+  if (str === undefined || str === null || str === '') return 0;
+  str = str.toString().trim().replace(/\s/g,'').replace(/µ/g,'u');
+  const sfx = {'T':1e12,'G':1e9,'Meg':1e6,'M':1e6,'k':1e3,'K':1e3,
+               'm':1e-3,'u':1e-6,'n':1e-9,'p':1e-12,'f':1e-15};
+  for (const [s, mul] of Object.entries(sfx).sort((a,b)=>b[0].length-a[0].length)) {
+    if (str.endsWith(s)) {
+      const n = parseFloat(str.slice(0,-s.length));
+      if (!isNaN(n)) return n * mul;
+    }
+  }
+  const n = parseFloat(str);
+  return isNaN(n) ? 0 : n;
+}
+
+function diodeIs(vf, ifCurrent, n=1.0, temp=25) {
+  const vt = 0.02585 * ((temp + 273.15) / 300);
+  try {
+    const isat = ifCurrent / (Math.exp(vf / (n * vt)) - 1);
+    if (!isFinite(isat) || isat <= 0) return [1e-14, '⚠ Is derivation overflow — using 1e-14A'];
+    const log = `Is derived: ${ifCurrent.toExponential(2)}A / (exp(${vf.toFixed(3)}/(${n.toFixed(2)}×${vt.toFixed(4)}V))-1) = ${isat.toExponential(3)}A`;
+    return [isat, log];
+  } catch(e) {
+    return [1e-14, '⚠ Using default Is=1e-14A'];
+  }
+}
+
+function mosfetKP(rdson, vgs, vth) {
+  // Derivation: in the deep-triode (linear) region, as Vds→0:
+  //   Id = KP * (W/L) * (Vgs-Vth) * Vds  →  RDS(on) = 1 / (KP * W/L * (Vgs-Vth))
+  // With W=L (W/L=1, as used in subcircuit instantiation):
+  //   KP = 1 / (RDS(on) * (Vgs-Vth))
+  // NOTE: the old formula 2/(RDS(on)*(Vgs-Vth)^2) was the inverse of saturation-current
+  //       and is physically incorrect for RDS(on) derivation.
+  if (rdson <= 0 || vgs <= vth) return [0.1, '⚠ Invalid RDS(on) or Vgs≤Vth — using KP=0.1'];
+  const kp = 1 / (rdson * (vgs - vth));
+  const log = `KP = 1/(${rdson.toExponential(3)}Ω × (${vgs}-${vth}V)) = ${kp.toFixed(5)} A/V²`;
+  return [kp, log];
+}
+
+function eslFromSRF(c, srf) {
+  if (srf <= 0 || c <= 0) return [0,''];
+  const esl = 1 / (Math.pow(2*Math.PI*srf, 2) * c);
+  return [esl, `ESL derived: 1/((2π×${(srf/1e6).toFixed(1)}MHz)²×${formatSI(c)}F) = ${(esl*1e9).toFixed(2)}nH`];
+}
+
+function cpFromSRF(l, srf) {
+  if (srf <= 0 || l <= 0) return [0,''];
+  const cp = 1 / (Math.pow(2*Math.PI*srf, 2) * l);
+  return [cp, `Cp derived: 1/((2π×${(srf/1e6).toFixed(1)}MHz)²×${formatSI(l)}H) = ${(cp*1e12).toFixed(2)}pF`];
+}
+
+function crystalParams(fs, rs, q) {
+  const omega = 2*Math.PI*fs;
+  const lm = (rs * q) / omega;
+  const cm = 1 / (omega * omega * lm);
+  return [lm, cm,
+    `Lm = (${rs}Ω × Q${q}) / (2π×${(fs/1e6).toFixed(3)}MHz) = ${(lm*1e3).toFixed(3)}mH\n`+
+    `Cm = 1/((2π×${(fs/1e6).toFixed(3)}MHz)²×Lm) = ${(cm*1e15).toFixed(2)}fF`
+  ];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODEL GENERATORS  (v3.0 — production-ready)
+// ═══════════════════════════════════════════════════════════════
+function getHeader(pn, mfr, type) {
+  const now = new Date().toISOString().replace('T',' ').slice(0,19);
+  return `* ============================================\n`+
+         `* Model  : ${pn||'Untitled'}\n`+
+         `* Type   : ${type}\n`+
+         (mfr ? `* Mfr    : ${mfr}\n` : '')+
+         `* Tool   : LTspice Model Builder v3.2\n`+
+         `* Date   : ${now}\n`+
+         `* ============================================\n`;
+}
+
+// ── RESISTOR ────────────────────────────────────────────────────
+function genResistor(p, pn, mfr) {
+  const logs = [], hdr = getHeader(pn,mfr,'Resistor');
+  let out = '';
+  const R = parseSI(p.resistance);
+  if (!R) return ['* ERROR: Resistance value required\n',['✗ Resistance is required']];
+  const ls = parseSI(p.ls), cp = parseSI(p.cp);
+  const tc1 = parseSI(p.tc1), tc2 = parseSI(p.tc2);
+  logs.push(`✓ R = ${formatSI(R)}Ω`);
+
+  const name = pn || 'R_MODEL';
+
+  if (ls > 0 || cp > 0) {
+    // Subcircuit with parasitics — embed literal values directly (no global .PARAM)
+    // Node topology: 1 -[Lser]-> N10 -[Rmain]-> N11 -[wire]-> 2
+    //                              1 -[Cpar]-> 2
+    out += `.SUBCKT ${name} 1 2\n`;
+    out += `* Parasitic model: Ls in series, Cp across terminals\n`;
+    if (ls > 0) {
+      out += `Lser 1 10 ${formatSI(ls)}\n`;
+      out += `Rmain 10 2 ${formatSI(R)}\n`;
+      logs.push(`✓ Ls = ${formatSI(ls)}H`);
+    } else {
+      out += `Rmain 1 2 ${formatSI(R)}\n`;
+    }
+    if (cp > 0) {
+      out += `Cpar 1 2 ${formatSI(cp)}\n`;
+      logs.push(`✓ Cp = ${formatSI(cp)}F`);
+    }
+    out += `.ENDS ${name}\n`;
+    out += `* Usage: X1 a b ${name}\n`;
+  } else if (tc1 !== 0 || tc2 !== 0) {
+    // Temperature-coefficient .MODEL
+    // LTspice TC1 units are 1/°C, TC2 units are 1/°C².
+    // User inputs ppm/°C → divide by 1e6 to get 1/°C.
+    const tc1_model = tc1 * 1e-6;
+    const tc2_model = tc2 * 1e-6;
+    out += `.MODEL ${name} RES (R=1`;
+    if (tc1 !== 0) { out += ` TC1=${tc1_model.toExponential(3)}`; logs.push(`✓ TC1 = ${tc1} ppm/°C → ${tc1_model.toExponential(3)} /°C`); }
+    if (tc2 !== 0) { out += ` TC2=${tc2_model.toExponential(3)}`; logs.push(`✓ TC2 = ${tc2} ppm/°C² → ${tc2_model.toExponential(3)} /°C²`); }
+    out += `)\n`;
+    out += `* Usage: R1 in+ in- ${name} ${formatSI(R)}\n`;
+  } else {
+    // Simple fixed resistor
+    out += `* Simple resistor — instantiate directly in schematic\n`;
+    out += `R1 in+ in- ${formatSI(R)}\n`;
+  }
+  if (p.pwr) logs.push(`✓ Power rating: ${p.pwr}W`);
+  return [hdr+out, logs.filter(Boolean)];
+}
+
+// ── CAPACITOR ───────────────────────────────────────────────────
+function genCapacitor(p, pn, mfr, type='Ceramic') {
+  const logs = [], hdr = getHeader(pn,mfr,`Capacitor (${type})`);
+  let out = '';
+  const C = parseSI(p.cap);
+  if (!C) return ['* ERROR: Capacitance required\n',['✗ Capacitance is required']];
+  let esr = parseSI(p.esr), esl = parseSI(p.esl);
+  const srf = parseSI(p.srf);
+  logs.push(`✓ C = ${formatSI(C)}F`);
+
+  // Derive ESL from SRF if not directly specified
+  if (srf > 0 && esl === 0) {
+    const [eslDerived, eslLog] = eslFromSRF(C, srf);
+    esl = eslDerived;
+    if (eslLog) logs.push(`✓ ${eslLog}`);
+  }
+
+  const name = pn || 'C_MODEL';
+  out += `.SUBCKT ${name} 1 2\n`;
+  out += `* ESL-ESR-C ladder model\n`;
+
+  // BUG FIX: Use internal node numbers starting at 10 to avoid
+  // any collision with terminal node 2. Sequential: 10, 11, 12...
+  let inNode = 1;  // current "left" node of the chain
+  let nextN  = 10; // next internal node to allocate
+
+  if (esl > 0) {
+    out += `Lesl ${inNode} ${nextN} ${formatSI(esl)}\n`;
+    inNode = nextN++;
+    logs.push(`✓ ESL = ${formatSI(esl)}H`);
+  }
+  if (esr > 0) {
+    out += `Resr ${inNode} ${nextN} ${formatSI(esr)}\n`;
+    inNode = nextN++;
+    logs.push(`✓ ESR = ${formatSI(esr)}Ω`);
+  }
+  // Main capacitor — from current chain endpoint to terminal 2
+  out += `Cmain ${inNode} 2 ${formatSI(C)}\n`;
+
+  // Leakage resistance (parallel across terminals)
+  const leakage = parseSI(p.leakage);
+  if (leakage > 0) {
+    const vr = parseFloat(p.vrated) || 10;
+    const rl = vr / leakage;
+    out += `Rleak 1 2 ${formatSI(rl)}\n`;
+    logs.push(`✓ Leakage → Rleak = ${formatSI(rl)}Ω`);
+  }
+  out += `.ENDS ${name}\n`;
+  out += `* Usage: X1 + - ${name}\n`;
+  return [hdr+out, logs];
+}
+
+// ── INDUCTOR ────────────────────────────────────────────────────
+function genInductor(p, pn, mfr) {
+  const logs = [], hdr = getHeader(pn,mfr,'Inductor');
+  let out = '';
+  const L = parseSI(p.l);
+  if (!L) return ['* ERROR: Inductance required\n',['✗ Inductance is required']];
+  const dcr = parseSI(p.dcr), srf = parseSI(p.srf);
+  const q = parseFloat(p.q)||0, qf = parseSI(p.q_freq);
+  logs.push(`✓ L = ${formatSI(L)}H`);
+
+  let cp = 0;
+  if (srf > 0) { const [cp2,l2]=cpFromSRF(L,srf); cp=cp2; if(l2) logs.push(`✓ ${l2}`); }
+  let rac = 0;
+  if (q > 0 && qf > 0) { rac=(2*Math.PI*qf*L)/q; logs.push(`✓ Rac@${(qf/1e6).toFixed(2)}MHz = ${rac.toFixed(4)}Ω`); }
+
+  const name = pn || 'L_MODEL';
+  out += `.SUBCKT ${name} 1 2\n`;
+  out += `* DCR-L-Rac ladder with optional self-resonance Cp\n`;
+
+  // Node chain: 1 -[Rdcr]-> 10 -[Lmain]-> 11 -[Rac]-> 12 -> direct wire to 2
+  // No resistors with value 1e-9 — use direct connections or omit
+  let inNode = 1, nextN = 10;
+
+  if (dcr > 0) {
+    out += `Rdcr ${inNode} ${nextN} ${formatSI(dcr)}\n`;
+    inNode = nextN++;
+    logs.push(`✓ DCR = ${formatSI(dcr)}Ω`);
+  }
+  const lOutNode = nextN++;
+  out += `Lmain ${inNode} ${lOutNode} ${formatSI(L)}\n`;
+  inNode = lOutNode;
+
+  if (rac > 0) {
+    out += `Rac ${inNode} ${nextN} ${rac.toFixed(5)}\n`;
+    inNode = nextN++;
+  }
+  // Close the chain to terminal 2
+  if (inNode !== 2) {
+    // Use a 1mΩ shunt — negligible but avoids floating nodes in rare topologies
+    out += `Rwire ${inNode} 2 0.001\n`;
+  }
+  if (cp > 0) {
+    out += `Cpar 1 2 ${formatSI(cp)}\n`;
+    logs.push(`✓ Cp (from SRF) = ${formatSI(cp)}F`);
+  }
+  out += `.ENDS ${name}\n`;
+  out += `* Usage: X1 + - ${name}\n`;
+  return [hdr+out, logs];
+}
+
+// ── FERRITE BEAD ────────────────────────────────────────────────
+function genFerriteBead(p, pn, mfr) {
+  const logs = [], hdr = getHeader(pn,mfr,'Ferrite Bead');
+  let out = '';
+  const z100 = parseFloat(p.z100)||600;
+  const dcr = parseSI(p.dcr)||0.3;
+
+  // If R@100MHz and X@100MHz not supplied, derive from Z using 45° split (R=X=Z/√2 → |Z|=Z exactly)
+  const r100_inp = parseFloat(p.r100);
+  const x100_inp = parseFloat(p.x100);
+  let r100, x100;
+  if (r100_inp > 0 && x100_inp > 0) {
+    r100 = r100_inp; x100 = x100_inp;
+  } else if (r100_inp > 0) {
+    r100 = r100_inp;
+    x100 = Math.sqrt(Math.max(0, z100*z100 - r100*r100));
+  } else if (x100_inp > 0) {
+    x100 = x100_inp;
+    r100 = Math.sqrt(Math.max(0, z100*z100 - x100*x100));
+  } else {
+    // Default: 45° split, R=X=Z/√2 → R²+X²=Z² exactly
+    r100 = z100 / Math.SQRT2;
+    x100 = z100 / Math.SQRT2;
+  }
+
+  // L represents the reactive component at 100 MHz
+  const l_val = x100 / (2*Math.PI*100e6);
+
+  // Rfb = remaining resistive loss AFTER Rdcr (avoid double-counting DCR at HF)
+  // At 100MHz: Z_resistive = Rdcr + Rfb. We want total ≈ r100, so Rfb = r100 - dcr
+  const rfb_val = Math.max(0.001, r100 - dcr);
+
+  const name = pn || 'FB_MODEL';
+  logs.push(`✓ Z@100MHz = ${z100}Ω  →  R@100MHz = ${r100.toFixed(2)}Ω, X@100MHz = ${x100.toFixed(2)}Ω`);
+  logs.push(`✓ |Z_model| @ 100MHz = √((${dcr.toFixed(3)}+${rfb_val.toFixed(3)})²+(${x100.toFixed(2)})²) = ${Math.sqrt((dcr+rfb_val)**2+x100**2).toFixed(2)}Ω`);
+  logs.push(`✓ DCR = ${formatSI(dcr)}Ω  →  Rdcr=${formatSI(dcr)}Ω, Rfb=${rfb_val.toFixed(4)}Ω`);
+  logs.push(`✓ Estimated L = ${formatSI(l_val)}H (from X@100MHz = ${x100.toFixed(2)}Ω)`);
+  out += `.SUBCKT ${name} 1 2\n`;
+  out += `* Ferrite bead: series Rdcr → Lfb → Rfb (frequency-dependent HF loss)\n`;
+  out += `* Rdcr = DC resistance; Rfb = additional HF resistive loss at 100 MHz\n`;
+  out += `* (Rfb = R100 - DCR to avoid double-counting on-resistance)\n`;
+  out += `Rdcr 1 10 ${formatSI(dcr)}\n`;
+  out += `Lfb 10 11 ${formatSI(l_val)}\n`;
+  out += `Rfb 11 2 ${rfb_val.toFixed(4)}\n`;
+  out += `.ENDS ${name}\n`;
+  out += `* Note: Ferrite bead Z is strongly frequency-dependent.\n`;
+  out += `* For accurate wideband simulation use manufacturer S-param or SPICE model.\n`;
+  out += `* Usage: X1 in out ${name}\n`;
+  return [hdr+out, logs];
+}
+
+// ── CRYSTAL ─────────────────────────────────────────────────────
+function genCrystal(p, pn, mfr) {
+  const logs = [], hdr = getHeader(pn,mfr,'Crystal');
+  let out = '';
+  const fs = parseSI(p.fs), rs = parseSI(p.rs)||50, q = parseFloat(p.q)||50000;
+  let co = parseSI(p.co)||4e-12;
+  if (!fs) return ['* ERROR: Series resonance frequency required\n',['✗ fs is required']];
+
+  const [lm, cm, derLog] = crystalParams(fs, rs, q);
+  logs.push(`✓ fs = ${formatSI(fs)}Hz, Q = ${q}, Rs = ${rs}Ω`);
+  logs.push(`✓ ${derLog}`);
+
+  // Use fp to cross-check or derive Co if fp is provided
+  // BVD relationship: fp ≈ fs × √(1 + Cm/Co)  →  Co = Cm / ((fp/fs)² - 1)
+  const fp = parseSI(p.fp);
+  if (fp > 0 && fp > fs) {
+    const co_from_fp = cm / ((fp/fs)*(fp/fs) - 1);
+    logs.push(`✓ Co check from fp: Co_derived = ${formatSI(co_from_fp)}F  (fp=${formatSI(fp)}Hz, Δf=${((fp-fs)/1e3).toFixed(2)}kHz)`);
+    if (parseSI(p.co) === 0) {
+      // No explicit Co supplied — use fp-derived value
+      co = co_from_fp;
+      logs.push(`✓ Co set from fp derivation = ${formatSI(co)}F`);
+    } else {
+      const pct_err = Math.abs(co - co_from_fp) / co_from_fp * 100;
+      if (pct_err > 20) logs.push(`⚠ Co mismatch: user-supplied ${formatSI(co)}F vs fp-derived ${formatSI(co_from_fp)}F (${pct_err.toFixed(1)}% diff)`);
+      else logs.push(`✓ Co = ${formatSI(co)}F (fp-derived: ${formatSI(co_from_fp)}F, ${pct_err.toFixed(1)}% match)`);
+    }
+  } else {
+    logs.push(`✓ Co = ${formatSI(co)}F (user-supplied; fp not provided for cross-check)`);
+  }
+
+  const name = pn || 'XTAL';
+  out += `.SUBCKT ${name} 1 2\n`;
+  out += `* Butterworth-Van Dyke (BVD) crystal model\n`;
+  out += `* Motional branch: Lm-Cm-Rs in series (1→10→11→12)\n`;
+  out += `* Shunt capacitance: Co (1→2)\n`;
+  out += `Lm 1 10 ${formatSI(lm)}\n`;
+  out += `Cm 10 11 ${formatSI(cm)}\n`;
+  out += `Rs 11 2 ${formatSI(rs)}\n`;
+  out += `Co 1 2 ${formatSI(co)}\n`;
+  out += `.ENDS ${name}\n`;
+  out += `* Usage: X1 xin xout ${name}\n`;
+  return [hdr+out, logs];
+}
+
+// ── DIODES (all types) ───────────────────────────────────────────
+function genDiode(p, pn, mfr, dtype='Signal') {
+  const logs = [], hdr = getHeader(pn,mfr,`Diode (${dtype})`);
+  let out = '';
+
+  let isVal = parseSI(p.is) || 1e-14;
+  const n   = parseFloat(p.n) || (dtype==='LED'?1.8:dtype==='Schottky'?1.05:1.0);
+  const rs  = parseSI(p.rs);
+  const cjo = parseSI(p.cjo), vj = parseFloat(p.vj)||0.6;
+  const tt  = parseSI(p.tt);
+  const bv  = parseSI(p.bv) || 0;
+  const ibv = parseSI(p.ibv) || 1e-3;
+  const vf  = parseFloat(p.vf) || 0;
+  const ifT = parseSI(p.if_test);
+
+  // Derive Is from Vf/If if Is not supplied
+  if (vf > 0 && ifT > 0 && parseSI(p.is) === 0) {
+    const [derived, derLog] = diodeIs(vf, ifT, n);
+    isVal = derived;
+    logs.push(`✓ ${derLog}`);
+  }
+  logs.push(`✓ Is = ${isVal.toExponential(3)}A, N = ${n}`);
+
+  // BUG FIX: All .MODEL parameters MUST use scientific notation — not SI suffixes
+  const mp = [`Is=${formatSci(isVal)}`];
+  if (Math.abs(n-1.0) > 0.01 || dtype==='LED' || dtype==='Schottky') mp.push(`N=${n.toFixed(3)}`);
+  if (rs > 0)  { mp.push(`Rs=${formatSci(rs)}`);  logs.push(`✓ Rs = ${formatSI(rs)}Ω`); }
+  if (cjo > 0) { mp.push(`Cjo=${formatSci(cjo)}`); logs.push(`✓ Cjo = ${formatSI(cjo)}F`); }
+  if (vj !== 0.6) mp.push(`Vj=${vj.toFixed(3)}`);
+  if (tt > 0)  { mp.push(`TT=${formatSci(tt)}`);  logs.push(`✓ TT = ${formatSI(tt)}s`); }
+  if (bv > 0)  { mp.push(`BV=${bv.toFixed(3)}`);  logs.push(`✓ BV = ${bv}V`); }
+  if (bv > 0 && ibv > 0) mp.push(`IBV=${formatSci(ibv)}`);
+
+  const name = pn || `D_${dtype.replace(/[\s/()]/g,'_')}`;
+
+  if (dtype === 'TVS Diode' && p.bidirectional === 'Yes') {
+    out += `.SUBCKT ${name} 1 2\n`;
+    out += `* Bidirectional TVS: two antiparallel zeners\n`;
+    out += `D1 1 2 ${name}_DZ\n`;
+    out += `D2 2 1 ${name}_DZ\n`;
+    out += `.ENDS ${name}\n\n`;
+    out += `.MODEL ${name}_DZ D (${mp.join(' ')})\n`;
+    logs.push(`✓ Bidirectional TVS subcircuit`);
+  } else {
+    out += `.MODEL ${name} D (${mp.join(' ')})\n`;
+  }
+  out += `* Usage: D1 anode cathode ${name}\n`;
+  return [hdr+out, logs];
+}
+
+// ── MOSFET ──────────────────────────────────────────────────────
+function genMosfet(p, pn, mfr, ch='N-Channel', level=3) {
+  const logs = [], hdr = getHeader(pn,mfr,`MOSFET (${ch})`);
+  let out = '';
+  const isP = ch === 'P-Channel';
+  const vth = parseFloat(p.vth) || 2.5;
+  const rdson = parseSI(p.rdson);
+  if (!rdson) return ['* ERROR: RDS(on) required\n',['✗ RDS(on) is required']];
+  const vgs_r  = parseFloat(p.vgs_rdson) || 10;
+  const lambda = parseFloat(p.lambda) || 0.02;
+  const ciss   = parseSI(p.ciss), coss = parseSI(p.coss), crss = parseSI(p.crss);
+  const vf_bd  = parseFloat(p.vf) || (isP ? 0.8 : 0.8);
+  const trr    = parseSI(p.trr) || 0;
+  const vds_max= parseFloat(p.vds_max) || 100;
+
+  const [kp, kpLog] = mosfetKP(rdson, vgs_r, vth);
+  logs.push(`✓ ${kpLog}`);
+  // Informational consistency check for Id@RDS(on)
+  const id_rdson_val = parseSI(p.id_rdson);
+  if (id_rdson_val > 0) {
+    // At the RDS(on) test point (deep linear region, low Vds):
+    // RDS(on)_expected ≈ 1/(KP*(Vgs-Vth)) → Id is load-dependent, not used in KP formula
+    logs.push(`ℹ Id@RDS(on) = ${formatSI(id_rdson_val)}A (reference — KP derived from RDS(on) and Vgs only)`);
+  }
+
+  // Derive body diode Is from Vf if provided (N fixed at 1.5 for Si body diode)
+  // Old code incorrectly used N = Vf/0.026 ≈ 30 which is physically wrong (N must be 1–2).
+  const BD_N = 1.5;   // typical Si PN body diode ideality factor
+  let bd_is = 1e-14;  // default
+  if (vf_bd > 0) {
+    // Assume 1 A test point (reasonable for a power device body diode)
+    const [derived_is] = diodeIs(vf_bd, 1.0, BD_N);
+    if (derived_is > 0 && isFinite(derived_is)) bd_is = derived_is;
+  }
+
+  // BUG FIX: Derive Cgs/Cgd/Cds as explicit values — do NOT use CGSO/CGDO
+  // in .MODEL (those are per-unit-width F/m, nonsensical for discrete devices).
+  // Place explicit capacitor elements inside the subcircuit instead.
+  let cgs = 0, cgd = 0, cds = 0;
+  if (ciss > 0 && crss > 0) { cgs = ciss - crss; logs.push(`✓ Cgs = Ciss-Crss = ${(cgs*1e12).toFixed(1)}pF`); }
+  if (coss > 0 && crss > 0) { cds = coss - crss; logs.push(`✓ Cds = Coss-Crss = ${(cds*1e12).toFixed(1)}pF`); }
+  if (crss > 0)              { cgd = crss;        logs.push(`✓ Cgd = Crss = ${(cgd*1e12).toFixed(1)}pF`); }
+
+  const mosType  = isP ? 'PMOS' : 'NMOS';
+  const vtoSign  = isP ? -Math.abs(vth) : Math.abs(vth);
+  const name     = pn || `MOS_${ch.replace(/[\s-]/g,'_')}`;
+  const modName  = `${name}_MOS`;
+  const bdName   = `${name}_BD`;
+
+  if (level === 1) {
+    // Simple .MODEL — no caps (Level 1 with explicit cap placement by user)
+    const mp = [`VTO=${vtoSign.toFixed(3)}`, `KP=${kp.toFixed(5)}`, `LAMBDA=${lambda.toFixed(4)}`];
+    out += `.MODEL ${name} ${mosType} (LEVEL=1 ${mp.join(' ')})\n`;
+    out += `* Usage: M1 drain gate source body ${name} W=1u L=1u\n`;
+    out += `* Note: Add Cgs, Cgd, Cds elements manually for accurate transient sim\n`;
+    logs.push(`✓ Level 1 .MODEL — VTO=${vtoSign}V`);
+  } else {
+    // Level 3 subcircuit: internal MOSFET + explicit cap elements + body diode
+    // NMOS: D G S  →  body diode: Dbody anode=S, cathode=D
+    // PMOS: D G S  →  body diode: Dbody anode=D, cathode=S
+    out += `.SUBCKT ${name} D G S\n`;
+    out += `* Level 3 MOSFET subcircuit: switch + explicit caps + body diode\n`;
+    out += `M1 D G S S ${modName} W=1u L=1u\n`;
+    // Explicit gate capacitances (correct approach for discrete MOSFETs)
+    if (cgs > 0) out += `Cgs G S ${formatSI(cgs)}\n`;
+    if (cgd > 0) out += `Cgd G D ${formatSI(cgd)}\n`;
+    if (cds > 0) out += `Cds D S ${formatSI(cds)}\n`;
+    // Body diode
+    const tt_bd = trr > 0 ? trr/2.4 : 0;
+    const bdP   = [`Is=${formatSci(bd_is)}`, `N=${BD_N.toFixed(1)}`, `BV=${vds_max.toFixed(1)}`];
+    if (tt_bd > 0) bdP.push(`TT=${formatSci(tt_bd)}`);
+    if (isP) {
+      out += `* Body diode: anode=D, cathode=S for P-channel\n`;
+      out += `Dbody D S ${bdName}\n`;
+    } else {
+      out += `* Body diode: anode=S, cathode=D for N-channel\n`;
+      out += `Dbody S D ${bdName}\n`;
+    }
+    out += `.ENDS ${name}\n\n`;
+    // Minimal .MODEL — NO CGSO/CGDO (handled by explicit elements above)
+    out += `.MODEL ${modName} ${mosType} (LEVEL=3 VTO=${vtoSign.toFixed(3)} KP=${kp.toFixed(5)} LAMBDA=${lambda.toFixed(4)})\n`;
+    out += `.MODEL ${bdName} D (${bdP.join(' ')})\n`;
+    logs.push(`✓ Body diode: Is=${bd_is.toExponential(3)}A, N=${BD_N} (derived from Vf=${vf_bd}V @ 1A)`);
+    logs.push(`✓ Level 3 subcircuit with explicit Cgs/Cgd/Cds and body diode`);
+    out += `* Usage: X1 drain gate source ${name}\n`;
+  }
+  return [hdr+out, logs];
+}
+
+// ── BJT ─────────────────────────────────────────────────────────
+function genBJT(p, pn, mfr, type='NPN') {
+  const logs = [], hdr = getHeader(pn,mfr,`BJT (${type})`);
+  let out = '';
+  const bf = parseFloat(p.bf);
+  if (!bf) return ['* ERROR: Forward beta (hFE) is required\n',['✗ BF (hFE) required']];
+  const isVal = parseSI(p.is) || 1.81e-14;
+  const vaf   = parseFloat(p.vaf) || 0;
+  const tf    = parseSI(p.tf) || 0;
+  const cje   = parseSI(p.cje) || 0;
+  const cjc   = parseSI(p.cjc) || 0;
+  const rc    = parseSI(p.rc)  || 0;
+  const re    = parseSI(p.re)  || 0;
+  const rb    = parseSI(p.rb)  || 0;
+  const ikf   = parseSI(p.ikf) || 0;
+  const nf    = parseFloat(p.nf)  || 1.0;
+  const modelType = (type === 'NPN') ? 'NPN' : 'PNP';
+
+  // BUG FIX: All .MODEL parameters MUST use scientific notation
+  const mp = [`BF=${bf.toFixed(2)}`, `IS=${formatSci(isVal)}`];
+  if (vaf > 0)              { mp.push(`VAF=${vaf.toFixed(2)}`);    logs.push(`✓ VAF = ${vaf}V`); }
+  if (ikf > 0)              { mp.push(`IKF=${formatSci(ikf)}`);   logs.push(`✓ IKF = ${formatSI(ikf)}A`); }
+  if (Math.abs(nf-1.0)>0.01){ mp.push(`NF=${nf.toFixed(3)}`);     logs.push(`✓ NF = ${nf}`); }
+  if (tf  > 0)              { mp.push(`TF=${formatSci(tf)}`);     logs.push(`✓ TF = ${formatSI(tf)}s`); }
+  if (cje > 0)              { mp.push(`CJE=${formatSci(cje)}`);   logs.push(`✓ Cje = ${formatSI(cje)}F`); }
+  if (cjc > 0)              { mp.push(`CJC=${formatSci(cjc)}`);   logs.push(`✓ Cjc = ${formatSI(cjc)}F`); }
+  if (rc  > 0)              { mp.push(`RC=${rc.toFixed(4)}`);      logs.push(`✓ Rc = ${formatSI(rc)}Ω`); }
+  if (re  > 0)              { mp.push(`RE=${re.toFixed(4)}`); }
+  if (rb  > 0)              { mp.push(`RB=${rb.toFixed(4)}`); }
+  logs.push(`✓ BF = ${bf}`);
+  logs.push(`✓ Is = ${isVal.toExponential(3)}A`);
+
+  const name = pn || `Q_${type}`;
+  out += `.MODEL ${name} ${modelType} (\n`;
+  out += `+ ${mp.join('\n+ ')}\n`;
+  out += `+ )\n`;
+  out += `* Usage: Q1 collector base emitter ${name}\n`;
+  return [hdr+out, logs];
+}
+
+// ── IGBT ────────────────────────────────────────────────────────
+function genIGBT(p, pn, mfr) {
+  const logs = [], hdr = getHeader(pn,mfr,'IGBT');
+  let out = '';
+  const vth    = parseFloat(p.vth)    || 5.5;
+  const vceSat = parseFloat(p.vce_sat)|| 1.8;
+  const ic     = parseSI(p.ic_vce)    || 25;
+  const vge    = parseFloat(p.vge)    || 15;
+  const vceMax = parseFloat(p.vce_max)|| 600;
+  const cies   = parseSI(p.cies)      || 0;
+  const coes   = parseSI(p.coes)      || 0;
+  const cres   = parseSI(p.cres)      || 0;
+
+  // KP derived from saturation current and gate overdrive
+  const ovd = vge - vth;
+  const kp = (ovd > 0) ? (2*ic / (ovd*ovd)) : 0.5;
+  const name = pn || 'IGBT_MODEL';
+  logs.push(`✓ Vth = ${vth}V`);
+  logs.push(`✓ Vce(sat) = ${vceSat}V @ Ic=${formatSI(ic)}A, Vge=${vge}V`);
+  logs.push(`✓ KP = ${kp.toFixed(5)} A/V²`);
+
+  out += `.SUBCKT ${name} C G E\n`;
+  out += `* IGBT approximation: NMOS switch + Vce(sat) offset + freewheeling diode\n`;
+  out += `* The voltage source models the Vce(sat) knee voltage offset\n`;
+  out += `M1 C G 10 E NMOS_${name} W=1u L=1u\n`;
+  out += `* Vsat models the built-in bipolar junction offset (~50% of Vce_sat).\n`;
+  out += `* The MOSFET channel voltage drop accounts for the remainder.\n`;
+  out += `Vsat 10 E DC ${(vceSat*0.5).toFixed(3)}\n`;
+  // Explicit gate capacitances
+  if (cies > 0 && cres > 0) {
+    const cgs_est = cies - cres;
+    out += `Cge G E ${formatSI(cgs_est > 0 ? cgs_est : cies)}\n`;
+    logs.push(`✓ Cge ≈ Cies-Cres = ${formatSI(cgs_est)}F`);
+  }
+  if (cres > 0) { out += `Cgc G C ${formatSI(cres)}\n`; logs.push(`✓ Cgc = Cres = ${formatSI(cres)}F`); }
+  if (coes > 0 && cres > 0) {
+    const cce = coes - cres;
+    if (cce > 0) { out += `Cce C E ${formatSI(cce)}\n`; }
+  }
+  // Freewheeling body diode
+  out += `Dfwd E C D_${name}\n`;
+  out += `.ENDS ${name}\n\n`;
+  out += `.MODEL NMOS_${name} NMOS (LEVEL=3 VTO=${vth.toFixed(3)} KP=${kp.toFixed(5)} LAMBDA=0.01)\n`;
+  out += `.MODEL D_${name} D (Is=1.0000e-14 BV=${vceMax.toFixed(1)})\n`;
+  out += `* Note: For precision IGBT simulation use manufacturer SPICE model.\n`;
+  out += `* Usage: X1 collector gate emitter ${name}\n`;
+  return [hdr+out, logs];
+}
+
+// ── SCR / THYRISTOR ─────────────────────────────────────────────
+function genSCR(p, pn, mfr) {
+  const logs = [], hdr = getHeader(pn,mfr,'SCR / Thyristor');
+  let out = '';
+  const vt   = parseFloat(p.vt)   || 1.0;
+  const rs   = parseSI(p.rs)      || 0.025;
+  const vdrm = parseFloat(p.vdrm) || 400;
+  const ih   = parseSI(p.ih)      || 3e-3;
+  const name = pn || 'SCR_MODEL';
+
+  logs.push(`✓ Vt(on) ≈ ${vt}V, Rs(on) = ${formatSI(rs)}Ω`);
+  logs.push(`✓ VDRM = ${vdrm}V, Ih = ${formatSI(ih)}A`);
+
+  // BUG FIX: Rewritten PNPN two-transistor model with correct topology.
+  // PNPN structure: Anode(P1) → N1 → P2 → N2(Cathode)
+  // NPN transistor models N1-P2-N2: C=net_np, B=net_gate, E=Cathode
+  // PNP transistor models P1-N1-P2: C=net_gate, B=net_np, E=Anode
+  // Gate couples into net_gate (P2-N2 junction)
+  // Latch condition: alpha_NPN + alpha_PNP > 1 (satisfied for BF>1)
+  out += `.SUBCKT ${name} A G K\n`;
+  out += `* PNPN two-transistor SCR model\n`;
+  out += `* NPN(N1-P2-N2): C=net1(N1), B=net2(P2), E=K(N2)\n`;
+  out += `* PNP(P1-N1-P2): C=net2(P2), B=net1(N1), E=net3(P1 via Rser)\n`;
+  out += `* Cross-coupling: NPN.C=PNP.B=net1; PNP.C=NPN.B=net2 → latch\n`;
+  out += `* Rser in series with anode for on-state slope resistance\n`;
+  out += `Rser A net3 ${rs.toFixed(5)}\n`;
+  out += `Q_NPN net1 net2 K NPN_${name}\n`;
+  out += `Q_PNP net2 net1 net3 PNP_${name}\n`;
+  out += `* Gate resistor couples trigger into P2 node; Rgk holds gate low at rest\n`;
+  out += `Rg G net2 100\n`;
+  out += `Rgk net2 K 10k\n`;
+  out += `.ENDS ${name}\n\n`;
+  // BF=20: alpha = 20/21 ≈ 0.952 → sum = 1.9 > 1 → will latch
+  out += `.MODEL NPN_${name} NPN (BF=20.00 IS=1.0000e-11 BR=2.00 CJC=5.0000e-11 CJE=5.0000e-11 TF=5.0000e-09)\n`;
+  out += `.MODEL PNP_${name} PNP (BF=20.00 IS=1.0000e-11 BR=2.00 CJC=5.0000e-11 CJE=5.0000e-11 TF=5.0000e-09)\n`;
+  out += `* Note: For precision thyristor sim use manufacturer SPICE model.\n`;
+  out += `* Usage: X1 anode gate cathode ${name}\n`;
+  return [hdr+out, logs];
+}
+
+// ── TRIAC ───────────────────────────────────────────────────────
+function genTRIAC(p, pn, mfr) {
+  const logs = [], hdr = getHeader(pn,mfr,'TRIAC');
+  let out = '';
+  const vt   = parseFloat(p.vt)   || 1.15;
+  const rs   = parseSI(p.rs)      || 0.018;
+  const vdrm = parseFloat(p.vdrm) || 600;
+  const name = pn || 'TRIAC_MODEL';
+  const halfName = `${name}_HALF`;
+  logs.push(`✓ Vt(on) ≈ ${vt}V, Rs(on) = ${formatSI(rs)}Ω`);
+  logs.push(`✓ VDRM = ${vdrm}V`);
+  out += `.SUBCKT ${name} MT1 G MT2\n`;
+  out += `* TRIAC = two antiparallel SCR halves\n`;
+  out += `X_SCR1 MT2 G MT1 ${halfName}\n`;
+  out += `X_SCR2 MT1 G MT2 ${halfName}\n`;
+  out += `.ENDS ${name}\n\n`;
+  out += `.SUBCKT ${halfName} A G K\n`;
+  out += `* Half-wave SCR (PNPN two-transistor, same topology as SCR fix)\n`;
+  out += `* NPN: C=net1(N1), B=net2(P2), E=K; PNP: C=net2(P2), B=net1(N1), E=net3\n`;
+  out += `Rser A net3 ${rs.toFixed(5)}\n`;
+  out += `Q_NPN net1 net2 K NPN_TR_${name}\n`;
+  out += `Q_PNP net2 net1 net3 PNP_TR_${name}\n`;
+  out += `Rg G net2 100\n`;
+  out += `Rgk net2 K 10k\n`;
+  out += `.ENDS ${halfName}\n\n`;
+  out += `.MODEL NPN_TR_${name} NPN (BF=20.00 IS=1.0000e-11 BR=2.00 CJC=5.0000e-11 CJE=5.0000e-11 TF=5.0000e-09)\n`;
+  out += `.MODEL PNP_TR_${name} PNP (BF=20.00 IS=1.0000e-11 BR=2.00 CJC=5.0000e-11 CJE=5.0000e-11 TF=5.0000e-09)\n`;
+  out += `* Usage: X1 MT1 gate MT2 ${name}\n`;
+  return [hdr+out, logs];
+}
+
+// ── GaN FET ─────────────────────────────────────────────────────
+function genGaNFET(p, pn, mfr) {
+  const [spice, logs] = genMosfet(p, pn, mfr, 'N-Channel', 3);
+  const annotated = spice.replace(
+    `* Level 3 MOSFET subcircuit`,
+    `* Level 3 GaN FET subcircuit`
+  ) + `* GaN-specific: eGaN has no p-n body diode — third-quadrant conduction\n`
+    + `* via channel only (Vgs≥Vth). Verify body diode TT with datasheet.\n`;
+  return [annotated, logs];
+}
+
+// ── SiC MOSFET ──────────────────────────────────────────────────
+function genSiCMosfet(p, pn, mfr) {
+  const [spice, logs] = genMosfet(p, pn, mfr, 'N-Channel', 3);
+  const annotated = spice.replace(
+    `* Level 3 MOSFET subcircuit`,
+    `* Level 3 SiC MOSFET subcircuit`
+  ) + `* SiC body diode: Vf typically 2.5–4V (much higher than Si).\n`
+    + `* Adjust Vf (Body Diode tab) to match datasheet forward voltage.\n`;
+  return [annotated, logs];
+}
+
+// ── OP-AMP ──────────────────────────────────────────────────────
+function genOpamp(p, pn, mfr) {
+  const logs = [], hdr = getHeader(pn,mfr,'Op-Amp');
+  let out = '';
+  const avol_db = parseFloat(p.avol) || 100;
+  const gbw     = parseSI(p.gbw)     || 1e6;
+  const sr      = parseFloat(p.sr)   || 0.5;
+  const vos     = parseSI(p.vos)     || 0;
+  const ib      = parseSI(p.ib)      || 0;
+  const rout    = parseSI(p.rout)    || 50;
+  const avol    = Math.pow(10, avol_db/20);
+  const fp      = gbw / avol;             // dominant pole frequency (Hz)
+  const cp_val  = 1 / (2*Math.PI*fp*1e6);// Cp at Rp=1MΩ to set dominant pole
+
+  logs.push(`✓ Avol = ${avol_db}dB = ${avol.toExponential(2)} V/V`);
+  logs.push(`✓ GBW = ${(gbw/1e6).toFixed(3)}MHz, fp = ${fp.toFixed(3)}Hz`);
+  logs.push(`✓ Slew rate = ${sr}V/µs`);
+
+  const name = pn || 'OPAMP';
+  // BUG FIX: VCC and VEE are always connected via:
+  //   1) Rcm: 100GΩ across supply pins (prevents floating node errors)
+  //   2) D_clampH / D_clampL: output clamp diodes referenced to VCC/VEE
+  out += `.SUBCKT ${name} INP INN VCC VEE OUT\n`;
+  out += `* Boyle-style op-amp macromodel\n`;
+  out += `* --- Input offset voltage source ---\n`;
+  if (vos > 0) {
+    out += `Vos INP_int INP DC ${vos.toExponential(4)}\n`;
+    logs.push(`✓ Vos = ${(vos*1e3).toFixed(2)}mV`);
+  }
+  const inP = vos > 0 ? 'INP_int' : 'INP';
+  out += `* --- Differential input resistance (after Vos node) ---\n`;
+  out += `Rin ${inP} INN 2Meg\n`;
+  if (ib > 0) {
+    out += `Ib1 ${inP} 0 DC ${(ib/2).toExponential(4)}\n`;
+    out += `Ib2 INN 0 DC ${(ib/2).toExponential(4)}\n`;
+    logs.push(`✓ Ib = ${(ib*1e9).toFixed(1)}nA`);
+  }
+  out += `* --- Gm → dominant pole (with slew-rate limiting via B source) ---\n`;
+  // SR = I_limit / Cp → I_limit = SR(V/s) × Cp
+  const sr_vs  = sr * 1e6;           // V/µs → V/s
+  const i_sr   = sr_vs * cp_val;     // slew-limiting current (A)
+  // B source replaces Gm; clamped to ±I_sr for slew-rate accuracy
+  // Positive I into 'MID' node (same convention as the G element it replaces)
+  out += `* B source clamps Gm output to ±${i_sr.toExponential(3)}A → SR = ${sr}V/µs\n`;
+  out += `Bgm 0 MID I=min(max(1.0000e-03*(V(${inP})-V(INN)),${(-i_sr).toExponential(4)}),${i_sr.toExponential(4)})\n`;
+  out += `Rp MID 0 1Meg\n`;
+  out += `Cp MID 0 ${cp_val.toExponential(4)}\n`;
+  logs.push(`✓ SR = ${sr}V/µs → I_sr = ${i_sr.toExponential(3)}A (B-source slew clamp on Gm node)`);
+  out += `* --- Voltage gain stage ---\n`;
+  // Egain = avol/Gm/Rp: since Gm*Rp=1000, Egain_coeff = avol/1000
+  const egainCoeff = avol / 1000;
+  out += `Egain 8 0 MID 0 ${egainCoeff.toExponential(4)}\n`;
+  out += `* --- Output stage ---\n`;
+  out += `Rout 8 OUT ${rout.toFixed(3)}\n`;
+  out += `* --- BUG FIX: VCC/VEE always connected ---\n`;
+  out += `* Rcm prevents floating supply pins; clamp diodes set output rail limits\n`;
+  out += `Rcm VCC VEE 100G\n`;
+  out += `D_clampH OUT VCC D_CL_${name}\n`;
+  out += `D_clampL VEE OUT D_CL_${name}\n`;
+  out += `.ENDS ${name}\n\n`;
+  out += `.MODEL D_CL_${name} D (Is=1.0000e-14 N=1.0000e-03 BV=1.0000e+03)\n`;
+  // CMRR and PSRR are reference-only in this behavioral macromodel.
+  // A full Boyle macromodel implementation would add GCMRR (VCCS from VCM to output node)
+  // and GPSRR (VCCS from VCC/VEE ripple to output). Not implemented here.
+  const cmrr = parseFloat(p.cmrr);
+  const psrr = parseFloat(p.psrr);
+  if (cmrr > 0) logs.push(`ℹ CMRR = ${cmrr}dB (reference only — not modelled in this macromodel)`);
+  if (psrr > 0) logs.push(`ℹ PSRR = ${psrr}dB (reference only — not modelled in this macromodel)`);
+  out += `* Usage: X1 INP INN VCC VEE OUT ${name}\n`;
+  return [hdr+out, logs];
+}
+
+// ── COMPARATOR ──────────────────────────────────────────────────
+function genComparator(p, pn, mfr) {
+  const logs = [], hdr = getHeader(pn,mfr,'Comparator');
+  let out = '';
+  const avol_db = parseFloat(p.avol) || 100;
+  const rout    = parseSI(p.rout)    || 200;
+  const tpd     = parseSI(p.tpd)     || 1.3e-6;
+  const vos     = parseSI(p.vos)     || 0;
+  const avol    = Math.pow(10, avol_db/20);
+  // Propagation delay → bandwidth of intermediate stage
+  const fbw     = 0.35 / tpd;       // rise-time estimate
+  const cp_val  = 1/(2*Math.PI*fbw*1e6);
+
+  logs.push(`✓ Avol = ${avol_db}dB = ${avol.toExponential(2)} V/V`);
+  logs.push(`✓ tpd = ${(tpd*1e6).toFixed(2)}µs → fbw ≈ ${(fbw/1e6).toFixed(3)}MHz`);
+  logs.push(`✓ Rout = ${formatSI(rout)}Ω (open-drain output)`);
+
+  const name = pn || 'COMP';
+  const ib_comp = parseSI(p.ib) || 0;
+  out += `.SUBCKT ${name} INP INN VCC GND OUT\n`;
+  out += `* Comparator macromodel with open-drain output\n`;
+  out += `* --- Input offset voltage (before Rin to correctly split Vos across input pair) ---\n`;
+  if (vos > 0) {
+    out += `Vos INP_int INP DC ${vos.toExponential(4)}\n`;
+    logs.push(`✓ Vos = ${(vos*1e3).toFixed(2)}mV`);
+  }
+  const inP = vos > 0 ? 'INP_int' : 'INP';
+  out += `Rin ${inP} INN 1Meg\n`;
+  if (ib_comp > 0) {
+    out += `Ib1 ${inP} 0 DC ${(ib_comp/2).toExponential(4)}\n`;
+    out += `Ib2 INN 0 DC ${(ib_comp/2).toExponential(4)}\n`;
+    logs.push(`✓ Ib = ${(ib_comp*1e9).toFixed(1)}nA`);
+  }
+  out += `* --- Gm → gain ---\n`;
+  out += `Gm 0 MID ${inP} INN 1.0000e-03\n`;
+  out += `Rp MID 0 1Meg\n`;
+  out += `Cp MID 0 ${cp_val.toExponential(4)}\n`;
+  out += `Egain 8 0 MID 0 ${(avol/1000).toExponential(4)}\n`;
+  out += `* --- Open-drain output stage ---\n`;
+  out += `* When INP > INN: internal node goes high → switch saturates OUT to GND\n`;
+  out += `* External pull-up to VCC required for VOH\n`;
+  out += `Rout 8 9 ${rout.toFixed(3)}\n`;
+  out += `* Clamp node 9 to supply rails\n`;
+  out += `D_oh 9 VCC D_OD_${name}\n`;
+  out += `D_ol GND 9 D_OD_${name}\n`;
+  out += `* Wire node 9 to OUT (open-drain)\n`;
+  out += `Vod 9 OUT DC 0\n`;
+  out += `* Supply pins connected (prevents floating node error)\n`;
+  out += `Rcm VCC GND 100G\n`;
+  out += `.ENDS ${name}\n\n`;
+  out += `.MODEL D_OD_${name} D (Is=1.0000e-14 BV=1.0000e+02 N=1.0000e-02)\n`;
+  out += `* Usage: X1 INP INN VCC GND OUT ${name}\n`;
+  out += `* Connect pull-up: R_pull VCC OUT 10k\n`;
+  return [hdr+out, logs];
+}
+
+// ── LDO REGULATOR ───────────────────────────────────────────────
+function genLDO(p, pn, mfr) {
+  const logs = [], hdr = getHeader(pn,mfr,'LDO Regulator');
+  let out = '';
+  const vout = parseFloat(p.vout) || 3.3;
+  const vdo  = parseSI(p.vdo)     || 0.3;
+  const iq   = parseSI(p.iq)      || 50e-6;
+  const psrr = parseFloat(p.psrr) || 60;
+  const imax = parseSI(p.iout_max)|| 1.0;
+  logs.push(`✓ Vout = ${vout}V`);
+  logs.push(`✓ Vdropout = ${(vdo*1e3).toFixed(1)}mV @ ${formatSI(imax)}A`);
+  logs.push(`✓ Iq = ${(iq*1e6).toFixed(1)}µA, PSRR = ${psrr}dB`);
+
+  // Feedback divider: Vout = Vref * (1 + Rfb1/Rfb2); Vref = 1.25V (typical bandgap)
+  // Real LDOs: Vout = Vref*(1+R1/R2); use Vref=1.25V for simplicity
+  const vref  = 1.25;
+  const rfb2  = 100e3;
+  const rfb1  = rfb2 * ((vout/vref) - 1);
+  let rfb1_val;
+  if (vout <= vref) {
+    logs.push(`⚠ Vout (${vout}V) ≤ internal Vref (${vref}V). Model will short Rfb1 to 0; output set by error amp. Consider a different Vref or a resistor-programmable architecture.`);
+    rfb1_val = 1.0; // near-zero Ω — Rfb1 shorted, Vfb ≈ Vout → regulation at Vout < Vref
+  } else {
+    rfb1_val = rfb1;
+  }
+
+  const name = pn || 'LDO';
+  out += `.SUBCKT ${name} IN OUT GND\n`;
+  out += `* LDO behavioral model (bandgap + error amp + PMOS pass element)\n`;
+  out += `* Vout = Vref × (1 + Rfb1/Rfb2) = ${vref}V × (1 + ${rfb1_val.toExponential(3)}/${rfb2.toExponential(3)}) = ${vout}V\n`;
+  out += `* --- Bandgap reference ---\n`;
+  out += `Vref 1 GND DC ${vref.toFixed(4)}\n`;
+  out += `* --- Feedback divider (node 2 = Vfb ≡ Vref at regulation) ---\n`;
+  out += `Rfb1 OUT 2 ${rfb1_val.toExponential(4)}\n`;
+  out += `Rfb2 2 GND ${rfb2.toExponential(4)}\n`;
+  out += `* --- Error amplifier (Gm=10mA/V, drives PMOS gate node 3) ---\n`;
+  out += `* Polarity: Vref>Vfb → I from node3 to GND → V(3) falls → Vgs more negative → PMOS ON → Vout rises ✓\n`;
+  out += `Gea 0 3 1 2 1.0000e-02\n`;
+  out += `Rea 3 0 1Meg\n`;
+  out += `Cea 3 0 10n\n`;
+  out += `* --- PMOS pass transistor (W=1u L=1u → W/L=1, consistent with KP derivation) ---\n`;
+  out += `* Gate = node 3 (error amp output), Source = IN, Drain = OUT, Body = IN\n`;
+  out += `M1 OUT 3 IN IN PMOS_LDO_${name} W=1u L=1u\n`;
+  out += `* --- Quiescent current drain ---\n`;
+  out += `Iq IN GND DC ${iq.toExponential(4)}\n`;
+  out += `.ENDS ${name}\n\n`;
+
+  // PMOS KP derivation (saturation region, W/L=1):
+  //   Id_sat = (KP/2) × (Vgs − VTO)²
+  //   At dropout: PMOS barely saturated, Vgs overdrive ≈ Vdo
+  //   Imax = (KP/2) × Vdo² → KP = 2×Imax / Vdo²
+  // VTO: PMOS threshold (negative for PMOS). Floor at -0.5 V to prevent
+  //   depletion-mode behaviour when Vdo is very small (e.g. 100mV).
+  const kp_ldo  = 2 * imax / (vdo * vdo);
+  const vto_ldo = Math.min(-(vdo * 0.5), -0.5);   // floor at −0.5 V
+  out += `.MODEL PMOS_LDO_${name} PMOS (LEVEL=1 VTO=${vto_ldo.toFixed(4)} KP=${kp_ldo.toFixed(4)})\n`;
+  logs.push(`✓ PMOS VTO = ${vto_ldo.toFixed(4)}V, KP = 2×${formatSI(imax)}A / (${(vdo*1e3).toFixed(0)}mV)² = ${kp_ldo.toFixed(4)} A/V²`);
+  out += `* Stability depends on output capacitor ESR. Run AC analysis to verify phase margin.\n`;
+  out += `* Usage: X1 IN OUT GND ${name}\n`;
+  return [hdr+out, logs];
+}
+
+// ── VARISTOR (MOV) ──────────────────────────────────────────────
+function genVaristor(p, pn, mfr) {
+  const logs = [], hdr = getHeader(pn,mfr,'Varistor (MOV)');
+  let out = '';
+  const vnom  = parseFloat(p.vnom) || 369;
+  const vcl   = parseFloat(p.vcl)  || 710;
+  const icl   = parseSI(p.icl)     || 100;
+  const alpha = parseFloat(p.alpha)|| 40;
+  logs.push(`✓ Vnom = ${vnom}V, Vcl = ${vcl}V @ ${formatSI(icl)}A`);
+  logs.push(`✓ Alpha (non-linearity coefficient) = ${alpha}`);
+
+  // Dynamic slope resistance at clamping point
+  const rs_mov = (vcl - vnom) / icl;
+  // Approximate zener BV slightly below Vnom
+  const bv_z   = vnom * 0.85;
+
+  const name = pn || 'MOV';
+  out += `.SUBCKT ${name} 1 2\n`;
+  out += `* Varistor/MOV: antiparallel (back-to-back) zener approximation\n`;
+  out += `* D1(anode=1,cathode=2): conducts forward when V12>0.7V; zener clamps when V12<-BV\n`;
+  out += `* D2(anode=2,cathode=1): conducts forward when V21>0.7V; zener clamps when V12>+BV\n`;
+  out += `* Together they clamp both voltage polarities at ±BV\n`;
+  out += `D1 1 2 DZENER_${name}\n`;
+  out += `D2 2 1 DZENER_${name}\n`;
+  out += `.ENDS ${name}\n\n`;
+  out += `.MODEL DZENER_${name} D (BV=${bv_z.toFixed(2)} IBV=1.0000e-03 Rs=${rs_mov.toFixed(4)} Is=1.0000e-14)\n`;
+  out += `* BV set to 0.85×Vnom (${bv_z.toFixed(2)}V); IBV=1mA (standard zener test current at BV).\n`;
+  out += `* Note: MOV I-V is power-law (I=k*V^alpha), strongly non-linear.\n`;
+  out += `* This model approximates clamping behavior only.\n`;
+  out += `* For accurate surge simulation use manufacturer behavioral model.\n`;
+  out += `* Usage: X1 line neutral ${name}\n`;
+  return [hdr+out, logs];
+}
+
+// ── THERMISTORS ─────────────────────────────────────────────────
+function genThermistor(p, pn, mfr, type='NTC') {
+  const logs = [], hdr = getHeader(pn,mfr,`Thermistor (${type})`);
+  let out = '';
+  const r25    = parseSI(p.r25) || 10e3;
+  const bConst = parseFloat(p.b) || 3950;
+  logs.push(`✓ R(25°C) = ${formatSI(r25)}Ω`);
+
+  const name = pn || (type==='NTC' ? 'NTC_THERM' : 'PTC_THERM');
+  out += `* ${type} Thermistor\n`;
+  out += `* Steinhart-Hart simplified: R(T) = R25 * exp(B*(1/T - 1/298.15))\n`;
+  out += `* T in Kelvin; run .STEP TEMP to sweep temperature\n`;
+  out += `.SUBCKT ${name} 1 2\n`;
+
+  if (type === 'NTC') {
+    logs.push(`✓ B = ${bConst}K`);
+    // Steinhart-Hart 2-parameter (Beta) form: R(T) = R25 × exp(B × (1/T − 1/T25))
+    // LTspice {temp} is in °C; add 273.15 to convert to Kelvin
+    out += `* NTC formula: R = R25 × exp(B × (1/(T_K) − 1/298.15))\n`;
+    out += `Rntc 1 2 {${r25.toExponential(4)}*exp(${bConst}*(1/(temp+273.15)-1/298.15))}\n`;
+    // Sanity-check R at 0°C and 100°C for the log
+    const r0   = r25 * Math.exp(bConst * (1/273.15 - 1/298.15));
+    const r100 = r25 * Math.exp(bConst * (1/373.15 - 1/298.15));
+    logs.push(`ℹ R(0°C) = ${formatSI(r0)}Ω, R(25°C) = ${formatSI(r25)}Ω, R(100°C) = ${formatSI(r100)}Ω`);
+  } else {
+    const rmin = parseSI(p.rmin) || 60;
+    const tc   = parseFloat(p.tc) || 120;
+    logs.push(`✓ Rmin = ${formatSI(rmin)}Ω, Trip/Curie temp ≈ ${tc}°C`);
+    // Sigmoid approximation: R stays near Rmin below Tc, rises sharply above Tc.
+    // At temp = Tc: R ≈ 2×Rmin; at Tc+14°C: R ≈ 1000×Rmin (k=0.5 sharpness).
+    // Sharpness k=0.5: sufficient for >3 decades rise within ±30°C of Tc.
+    const k = 0.5;
+    out += `* PTC sigmoid approximation: R = Rmin × (1 + exp(k×(T − Tc)))\n`;
+    out += `* At Tc: R = 2×Rmin; sharpness k=${k} → ~1000× rise by Tc+${Math.round(Math.log(999)/k)}°C\n`;
+    out += `Rptc 1 2 {${rmin.toExponential(4)}*(1+exp((temp-${tc})*${k}))}\n`;
+    // Sanity check
+    const r_below = rmin * (1 + Math.exp((tc - 40 - tc) * k));
+    const r_at_tc = rmin * (1 + Math.exp(0));
+    const r_above = rmin * (1 + Math.exp((tc + 20 - tc) * k));
+    logs.push(`ℹ R(Tc−40°C) = ${formatSI(r_below)}Ω ≈ Rmin, R(Tc) = ${formatSI(r_at_tc)}Ω, R(Tc+20°C) = ${formatSI(r_above)}Ω`);
+  }
+  out += `.ENDS ${name}\n`;
+  out += `* Usage: X1 1 2 ${name}\n`;
+  out += `* Example temp sweep: .STEP TEMP -40 125 5\n`;
+  return [hdr+out, logs];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ROUTING
+// ═══════════════════════════════════════════════════════════════
+function routeGenerate(comp, params, pn, mfr, level) {
+  if (comp === 'Resistor') return genResistor(params, pn, mfr);
+  if (comp.includes('Capacitor')) {
+    const t = comp.replace('Capacitor ','').replace(/[()]/g,'').trim();
+    return genCapacitor(params, pn, mfr, t);
+  }
+  if (comp === 'Inductor') return genInductor(params, pn, mfr);
+  if (comp === 'Ferrite Bead') return genFerriteBead(params, pn, mfr);
+  if (comp === 'Crystal (XTAL)') return genCrystal(params, pn, mfr);
+  if (comp === 'Varistor (MOV)') return genVaristor(params, pn, mfr);
+  if (comp === 'Thermistor (NTC)') return genThermistor(params, pn, mfr, 'NTC');
+  if (comp === 'Thermistor (PTC)') return genThermistor(params, pn, mfr, 'PTC');
+  if (comp === 'Diode (Signal)') return genDiode(params, pn, mfr, 'Signal');
+  if (comp === 'Diode (Schottky)') return genDiode(params, pn, mfr, 'Schottky');
+  if (comp === 'Diode (Zener)') return genDiode(params, pn, mfr, 'Zener');
+  if (comp === 'TVS Diode') return genDiode(params, pn, mfr, 'TVS Diode');
+  if (comp === 'Rectifier Diode') return genDiode(params, pn, mfr, 'Rectifier');
+  if (comp === 'LED') return genDiode(params, pn, mfr, 'LED');
+  if (comp === 'Photodiode') return genDiode(params, pn, mfr, 'Photodiode');
+  if (comp === 'BJT (NPN)') return genBJT(params, pn, mfr, 'NPN');
+  if (comp === 'BJT (PNP)') return genBJT(params, pn, mfr, 'PNP');
+  if (comp === 'MOSFET (N-Channel)') return genMosfet(params, pn, mfr, 'N-Channel', level);
+  if (comp === 'MOSFET (P-Channel)') return genMosfet(params, pn, mfr, 'P-Channel', level);
+  if (comp === 'IGBT') return genIGBT(params, pn, mfr);
+  if (comp === 'SCR / Thyristor') return genSCR(params, pn, mfr);
+  if (comp === 'TRIAC') return genTRIAC(params, pn, mfr);
+  if (comp === 'GaN FET') return genGaNFET(params, pn, mfr);
+  if (comp === 'SiC MOSFET') return genSiCMosfet(params, pn, mfr);
+  if (comp === 'Op-Amp') return genOpamp(params, pn, mfr);
+  if (comp === 'Comparator') return genComparator(params, pn, mfr);
+  if (comp === 'LDO Regulator') return genLDO(params, pn, mfr);
+  return [`* Model for "${comp}" — Coming soon!\n`, [`⚠ Not yet implemented`]];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXAMPLES — real datasheet values for every component
+// ═══════════════════════════════════════════════════════════════
+const EXAMPLES = {
+
+  // ── PASSIVES ────────────────────────────────────────────────
+  // Yageo RC0402FR-0710KL — 10kΩ 1% 0402 thick-film
+  "Resistor": {
+    part_number:'RC0402FR-0710KL', manufacturer:'Yageo',
+    resistance:'10k',
+    tc1:'100',        // ±100 ppm/°C typical for thick-film 1%
+    tc2:'0',
+    vc:'10',          // ~10 ppm/V voltage coefficient
+    ls:'1n',          // ~1 nH for 0402
+    cp:'0.1p',        // ~0.1 pF parasitic
+    pwr:'0.063',      // 63 mW rated
+    vmax:'50'
+  },
+
+  // Murata GRM188R71H104KA93D — 100 nF X7R 50 V 0603
+  "Capacitor (Ceramic)": {
+    part_number:'GRM188R71H104KA93D', manufacturer:'Murata',
+    cap:'100n',
+    dielectric:'X7R',
+    tcc:'15',         // ±15% over temp for X7R
+    vcoeff:'20',      // ~20% cap loss at rated voltage
+    esr:'100m',       // 100 mΩ at 1 MHz
+    esl:'800p',       // 800 pH for 0603
+    srf:'55M',        // ~55 MHz SRF for 100 nF 0603
+    vrated:'50'
+  },
+
+  // Nichicon UKW1H102MHD — 1000 µF 50 V aluminium electrolytic
+  "Capacitor (Electrolytic)": {
+    part_number:'UKW1H102MHD', manufacturer:'Nichicon',
+    cap:'1000u',
+    esr:'55m',        // 55 mΩ at 100 kHz (from datasheet)
+    esl:'20n',        // ~20 nH lead inductance
+    leakage:'50u',    // 50 µA max leakage at rated voltage
+    vrated:'50',
+    ripple:'1.34'     // 1340 mA RMS ripple @ 105°C
+  },
+
+  // Wima MKS2 — 470 nF 63 V polyester film
+  "Capacitor (Film)": {
+    part_number:'MKS2B034701A00KSSD', manufacturer:'WIMA',
+    cap:'470n',
+    tcc:'200',        // ±200 ppm/°C for MKP/MKS polyester
+    esr:'10m',        // very low ESR for film
+    esl:'5n',
+    srf:'10M',
+    vrated:'63'
+  },
+
+  // Murata LQH32CN100K23L — 10 µH power inductor 2012
+  "Inductor": {
+    part_number:'LQH32CN100K23L', manufacturer:'Murata',
+    l:'10u',
+    dcr:'52m',        // 52 mΩ DCR from datasheet
+    q:'35',           // Q=35 at 796 kHz
+    q_freq:'796k',
+    srf:'27M',        // 27 MHz SRF
+    isat:'1.2',       // 1.2 A saturation (−30%)
+    irms:'1.0'        // 1.0 A RMS rated
+  },
+
+  // Murata BLM21PG601SN1D — 600 Ω @ 100 MHz ferrite bead 0805
+  "Ferrite Bead": {
+    part_number:'BLM21PG601SN1D', manufacturer:'Murata',
+    z100:'600',       // 600 Ω impedance @ 100 MHz
+    dcr:'300m',       // 300 mΩ DCR
+    r100:'500',       // ~500 Ω resistive @ 100 MHz
+    x100:'330',       // ~330 Ω reactive @ 100 MHz
+    imax:'3.0',       // 3 A max current
+    vrated:'50'
+  },
+
+  // Abracon ABM8-8.000MHZ-B2-T — 8 MHz fundamental SMD crystal
+  "Crystal (XTAL)": {
+    part_number:'ABM8-8.000MHZ-B2-T', manufacturer:'Abracon',
+    fs:'8M',
+    fp:'8.002M',      // ~2 kHz above series
+    rs:'50',          // 50 Ω max ESR
+    q:'80000',        // typical Q for AT-cut 8 MHz
+    co:'4p'           // 4 pF shunt capacitance
+  },
+
+  // ── PROTECTION ──────────────────────────────────────────────
+  // Littelfuse V14E275P — 275 VRMS MOV 14 mm disc
+  "Varistor (MOV)": {
+    part_number:'V14E275P', manufacturer:'Littelfuse',
+    vnom:'369',       // 369 V DC clamping @ 1 mA
+    vcl:'710',        // 710 V clamping @ 100 A (8/20 µs)
+    icl:'100',        // 100 A peak surge
+    alpha:'40',       // non-linearity coefficient
+    c:'180p',         // 180 pF junction capacitance
+    vac:'275',        // 275 VRMS
+    energy:'40'       // 40 J energy rating
+  },
+
+  // Vishay NTCLE100E3103JB0 — 10 kΩ NTC thermistor
+  "Thermistor (NTC)": {
+    part_number:'NTCLE100E3103JB0', manufacturer:'Vishay',
+    r25:'10k',        // 10 kΩ at 25°C
+    b:'3977',         // B25/85 = 3977 K
+    tol:'5'           // ±5% resistance tolerance
+  },
+
+  // Murata PTC — PTGL05AS101B2B51B0 — 100 Ω PTC resettable fuse
+  "Thermistor (PTC)": {
+    part_number:'PTGL05AS101B2B51B0', manufacturer:'Murata',
+    r25:'100',        // 100 Ω at 25°C
+    rmin:'60',        // minimum resistance in low-temp region
+    tc:'120'          // ~120°C Curie/trip temperature
+  },
+
+  // ── DIODES ──────────────────────────────────────────────────
+  // Vishay 1N4148 — fast switching signal diode (from Vishay SPICE model)
+  "Diode (Signal)": {
+    part_number:'1N4148', manufacturer:'Vishay',
+    is:'2.52e-9',     // 2.52 nA saturation current
+    n:'1.752',        // emission coefficient
+    rs:'0.568',       // 568 mΩ series resistance
+    vf:'0.72',        // Vf at 10 mA
+    if_test:'10m',
+    cjo:'4p',         // 4 pF zero-bias cap
+    vj:'0.6',         // 0.6 V contact potential
+    tt:'5.76n',       // 5.76 ns transit time
+    bv:'100'          // 100 V breakdown
+  },
+
+  // ON Semi BAT54 — Schottky signal diode
+  "Diode (Schottky)": {
+    part_number:'BAT54', manufacturer:'ONSemi',
+    is:'10u',         // 10 µA saturation (Schottky barrier — much higher)
+    n:'1.05',         // near-ideal emission coefficient
+    rs:'30m',         // 30 mΩ bulk resistance
+    vf:'0.32',        // 0.32 V Vf at 10 mA
+    if_test:'100m',
+    cjo:'15p',        // 15 pF junction cap
+    vj:'0.42',        // 0.42 V barrier potential
+    bv:'30',          // 30 V breakdown
+    vrrm:'30'
+  },
+
+  // Nexperia BZX84C5V1 — 5.1 V zener SOT-23
+  "Diode (Zener)": {
+    part_number:'BZX84C5V1', manufacturer:'Nexperia',
+    bv:'5.1',         // 5.1 V zener voltage
+    ibv:'5m',         // 5 mA test current
+    rs:'40',          // 40 Ω dynamic resistance at Iz = 5 mA
+    is:'1e-14',
+    cjo:'100p',       // 100 pF junction cap
+    vj:'0.6',
+    pwr:'0.3'         // 300 mW power rating
+  },
+
+  // Littelfuse SMBJ12A — 12 V unidirectional TVS, DO-214AA
+  "TVS Diode": {
+    part_number:'SMBJ12A', manufacturer:'Littelfuse',
+    bv:'13.3',        // 13.3 V breakdown voltage
+    vclamp:'19.9',    // 19.9 V clamping @ 31.1 A
+    iclamp:'31.1',    // 31.1 A peak pulse current (10/1000 µs)
+    bidirectional:'No',
+    c:'100p',         // ~100 pF junction cap
+    ppk:'600'         // 600 W peak power (10/1000 µs)
+  },
+
+  // ON Semi 1N4007 — 1 A 1000 V silicon rectifier
+  "Rectifier Diode": {
+    part_number:'1N4007', manufacturer:'ONSemi',
+    is:'7.63e-9',     // 7.63 nA saturation current
+    n:'1.77',         // emission coefficient
+    rs:'42m',         // 42 mΩ series resistance
+    vf:'1.1',         // 1.1 V Vf at 1 A
+    if_test:'1',
+    cjo:'26p',        // 26 pF junction cap
+    tt:'5.7u',        // 5.7 µs reverse recovery
+    bv:'1000',        // 1000 V breakdown
+    if_max:'1'        // 1 A avg forward current
+  },
+
+  // Broadcom HSMG-C190 — green 0603 LED
+  "LED": {
+    part_number:'HSMG-C190', manufacturer:'Broadcom',
+    vf:'2.1',         // 2.1 V Vf at 20 mA
+    if_test:'20m',
+    n:'1.85',         // typical LED ideality
+    rs:'3',           // 3 Ω dynamic resistance
+    cjo:'30p',
+    if_max:'30m',     // 30 mA max continuous
+    wavelength:'569'  // 569 nm peak (green)
+  },
+
+  // Vishay VEMD2000X01 — silicon PIN photodiode
+  "Photodiode": {
+    part_number:'VEMD2000X01', manufacturer:'Vishay',
+    is:'2n',          // 2 nA dark current @ 5 V reverse bias
+    n:'1.0',
+    rs:'10',          // 10 Ω bulk resistance
+    responsivity:'0.62', // 0.62 A/W at 900 nm
+    cjo:'6p',         // 6 pF at 0 V bias
+    vj:'0.5',
+    bv:'60',          // 60 V max reverse voltage
+    peak_wavelength:'900' // 900 nm peak sensitivity
+  },
+
+  // ── TRANSISTORS ─────────────────────────────────────────────
+  // ON Semi 2N2222A — NPN small signal (published SPICE params)
+  "BJT (NPN)": {
+    part_number:'2N2222A', manufacturer:'ONSemi',
+    bf:'225',         // forward beta
+    is:'1.81e-14',    // 18.1 fA
+    vaf:'74.3',       // 74.3 V Early voltage
+    ikf:'200m',       // 200 mA knee current
+    nf:'1.0',
+    cje:'22p',        // 22 pF B-E cap
+    cjc:'8p',         // 8 pF B-C cap
+    tf:'350p',        // 350 ps → fT ≈ 455 MHz
+    rc:'0.3',
+    re:'0.1',
+    rb:'5',
+    rth_jc:'83.3',    // 83.3°C/W (TO-18 pkg)
+    vceo:'40',
+    ic_max:'0.6'      // 600 mA
+  },
+
+  // ON Semi 2N2907A — PNP small signal
+  "BJT (PNP)": {
+    part_number:'2N2907A', manufacturer:'ONSemi',
+    bf:'200',
+    is:'1.5e-14',
+    vaf:'50',
+    ikf:'100m',
+    nf:'1.0',
+    cje:'18p',
+    cjc:'6p',
+    tf:'500p',
+    rc:'0.4',
+    re:'0.2',
+    rb:'10',
+    vceo:'-60',
+    ic_max:'0.6'
+  },
+
+  // Infineon IRF540N — 100 V 33 A N-channel power MOSFET TO-220
+  "MOSFET (N-Channel)": {
+    part_number:'IRF540N', manufacturer:'Infineon',
+    vth:'3.2',        // 3.2 V Vth (typ)
+    rdson:'44m',      // 44 mΩ RDS(on) @ Vgs=10 V, Id=28 A
+    vgs_rdson:'10',
+    id_rdson:'28',
+    lambda:'0.02',
+    ciss:'1700p',     // 1700 pF
+    coss:'310p',      // 310 pF
+    crss:'130p',      // 130 pF
+    qg:'72n',         // 72 nC total gate charge
+    vf:'1.0',         // body diode Vf
+    trr:'110n',       // 110 ns body diode trr
+    rth_jc:'1.0',     // 1.0°C/W
+    rth_cs:'0.5',
+    vds_max:'100',
+    id_max:'33',
+    pd_max:'130'
+  },
+
+  // Infineon IRF9540N — 100 V 23 A P-channel TO-220
+  "MOSFET (P-Channel)": {
+    part_number:'IRF9540N', manufacturer:'Infineon',
+    vth:'2.8',        // 2.8 V magnitude (enter positive)
+    rdson:'117m',     // 117 mΩ @ Vgs=−10 V, Id=−23 A
+    vgs_rdson:'10',
+    id_rdson:'23',
+    lambda:'0.02',
+    ciss:'1800p',
+    coss:'420p',
+    crss:'150p',
+    vf:'1.0',
+    trr:'160n',
+    vds_max:'100',
+    id_max:'23',
+    pd_max:'140'
+  },
+
+  // Infineon IRG4PC40W — 600 V 20 A IGBT TO-247
+  "IGBT": {
+    part_number:'IRG4PC40W', manufacturer:'Infineon',
+    vth:'5.5',        // 5.5 V gate threshold
+    vce_sat:'1.85',   // 1.85 V Vce(sat) @ Ic=20 A, Vge=15 V
+    ic_vce:'20',
+    vge:'15',
+    tf:'50n',         // 50 ns current fall time
+    cies:'1590p',     // 1590 pF input cap
+    coes:'180p',
+    cres:'45p',
+    vce_max:'600',
+    ic_max:'20',
+    pd_max:'100'
+  },
+
+  // ON Semi MCR100-8 — 0.8 A 600 V SCR TO-92
+  "SCR / Thyristor": {
+    part_number:'MCR100-8', manufacturer:'ONSemi',
+    vt:'1.0',         // 1.0 V on-state threshold
+    rs:'25m',         // 25 mΩ on-state slope resistance
+    vdrm:'600',       // 600 V blocking voltage
+    ih:'3m',          // 3 mA holding current
+    il:'5m',          // 5 mA latching current
+    it_avg:'0.8',     // 0.8 A average on-state
+    itsm:'10'         // 10 A peak surge (8.3 ms)
+  },
+
+  // STMicro BTA16-600B — 16 A 600 V TRIAC TO-220
+  "TRIAC": {
+    part_number:'BTA16-600B', manufacturer:'STMicroelectronics',
+    vt:'1.15',        // 1.15 V on-state threshold
+    rs:'18m',         // 18 mΩ on-state slope resistance
+    vdrm:'600',       // 600 V peak blocking voltage
+    ih:'35m',         // 35 mA holding current
+    il:'70m',         // 70 mA latching current
+    it_rms:'16'       // 16 A RMS
+  },
+
+  // GaN Systems GS61008P — 100 V 30 A eGaN FET
+  "GaN FET": {
+    part_number:'GS61008P', manufacturer:'GaN Systems',
+    vth:'1.4',        // 1.4 V threshold (eGaN enhancement mode)
+    rdson:'7m',       // 7 mΩ RDS(on) @ Vgs=6 V, Id=30 A
+    vgs_rdson:'6',
+    id_rdson:'30',
+    lambda:'0.01',
+    ciss:'460p',      // 460 pF input cap
+    coss:'105p',
+    crss:'9p',
+    vds_max:'100',
+    id_max:'30'
+  },
+
+  // Wolfspeed C3M0065090D — 900 V 36 A SiC MOSFET TO-247-4
+  "SiC MOSFET": {
+    part_number:'C3M0065090D', manufacturer:'Wolfspeed',
+    vth:'2.5',        // 2.5 V threshold (typ)
+    rdson:'65m',      // 65 mΩ @ Vgs=20 V, Id=36 A
+    vgs_rdson:'20',
+    id_rdson:'36',
+    lambda:'0.008',
+    ciss:'940p',
+    coss:'100p',
+    crss:'6p',
+    vf:'3.7',         // 3.7 V body diode Vf (SiC — high)
+    trr:'19n',        // 19 ns (very fast SiC body diode)
+    vds_max:'900',
+    id_max:'36',
+    tj_max:'150'
+  },
+
+  // ── ICs ─────────────────────────────────────────────────────
+  // Texas Instruments LM358 — dual general-purpose op-amp
+  "Op-Amp": {
+    part_number:'LM358', manufacturer:'Texas Instruments',
+    avol:'100',       // 100 dB open-loop gain (typ)
+    gbw:'1M',         // 1 MHz GBW
+    sr:'0.6',         // 0.6 V/µs slew rate
+    vos:'2m',         // 2 mV offset voltage (typ)
+    ib:'45n',         // 45 nA input bias current
+    rout:'40',        // 40 Ω output resistance (open loop)
+    cmrr:'80',        // 80 dB CMRR
+    psrr:'100',       // 100 dB PSRR
+    vcc:'32',         // up to 32 V single supply
+    vee:'0',
+    voh:'30.5',       // Voh close to rail (single 32 V)
+    vol:'0.05'        // vol ≈ 50 mV
+  },
+
+  // Texas Instruments LM393 — dual voltage comparator
+  "Comparator": {
+    part_number:'LM393', manufacturer:'Texas Instruments',
+    avol:'100',       // 100 dB open-loop gain
+    tpd:'1.3u',       // 1.3 µs propagation delay @ 5 V
+    vos:'5m',         // 5 mV input offset voltage (max)
+    ib:'250n',        // 250 nA input bias current
+    rout:'200',       // 200 Ω output resistance (saturated)
+    vcc:'36',         // 2–36 V or ±18 V
+    voh:'36',         // open-drain — pull-up sets VOH
+    vol:'0.4'         // 0.4 V output low (max, Io=6 mA)
+  },
+
+  // AMS AMS1117-3.3 — 1 A 3.3 V LDO regulator SOT-223
+  "LDO Regulator": {
+    part_number:'AMS1117-3.3', manufacturer:'AMS / Diodes Inc.',
+    vout:'3.3',       // 3.3 V regulated output
+    vdo:'1.1',        // 1.1 V dropout @ 1 A (worst case)
+    iq:'5m',          // 5 mA quiescent current
+    psrr:'75',        // 75 dB PSRR at 120 Hz
+    vout_acc:'1',     // ±1% output accuracy
+    esr_min:'22m',    // 22 mΩ min stable ESR
+    esr_max:'2',      // 2 Ω max stable ESR
+    vin_max:'15',     // 15 V max input
+    iout_max:'1'      // 1 A max output current
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// SYNTAX HIGHLIGHTER
+// ═══════════════════════════════════════════════════════════════
+function highlight(text) {
+  const lines = text.split('\n');
+  const html = lines.map(line => {
+    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    if (line.startsWith('*')) return `<span class="sp-comment">${esc(line)}</span>`;
+    // Keywords
+    const kwRe = /^(\s*)(\.SUBCKT|\.ENDS|\.MODEL|\.PARAM|\.END)(\s+)/i;
+    const kwMatch = line.match(kwRe);
+    if (kwMatch) {
+      const rest = esc(line.slice(kwMatch[0].length));
+      return `${esc(kwMatch[1])}<span class="sp-keyword">${esc(kwMatch[2])}</span>${esc(kwMatch[3])}${rest}`;
+    }
+    return `<span class="sp-plain">${esc(line)}</span>`;
+  });
+  return html.join('\n');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI STATE
+// ═══════════════════════════════════════════════════════════════
+let currentComp = null;
+let currentParams = {}; // { key: inputElement }
+let currentTab = 0;
+let currentSpiceText = '';
+
+// Build component tree
+function buildTree(filter='') {
+  const tree = document.getElementById('comp-tree');
+  tree.innerHTML = '';
+  const f = filter.toLowerCase();
+  for (const [cat, comps] of Object.entries(COMPONENTS)) {
+    const filtered = f ? comps.filter(c => c.toLowerCase().includes(f)) : comps;
+    if (!filtered.length) continue;
+    const catEl = document.createElement('div');
+    catEl.className = 'cat-header';
+    catEl.textContent = cat;
+    catEl.onclick = () => {
+      catEl.classList.toggle('collapsed');
+      items.classList.toggle('collapsed');
+    };
+    const items = document.createElement('div');
+    items.className = 'cat-items';
+    filtered.forEach(comp => {
+      const el = document.createElement('div');
+      el.className = 'comp-item' + (comp === currentComp ? ' active' : '');
+      el.textContent = comp;
+      el.onclick = () => loadComponent(comp);
+      items.appendChild(el);
+    });
+    catEl.appendChild(document.createTextNode('')); // keep text
+    tree.appendChild(catEl);
+    tree.appendChild(items);
+  }
+}
+
+function loadComponent(comp) {
+  currentComp = comp;
+  currentParams = {};
+  // Update active state
+  document.querySelectorAll('.comp-item').forEach(el => {
+    el.classList.toggle('active', el.textContent === comp);
+  });
+  document.getElementById('comp-title').textContent = comp.toUpperCase();
+  // Build tabs
+  const tabsBar = document.getElementById('tabs-bar');
+  const formContent = document.getElementById('form-content');
+  tabsBar.innerHTML = '';
+  formContent.innerHTML = '';
+  const pDef = PARAMS[comp];
+  if (!pDef) {
+    formContent.innerHTML = `<div class="no-comp"><div>Parameters coming soon for ${comp}</div></div>`;
+    return;
+  }
+  const tabs = Object.keys(pDef);
+  tabs.forEach((tab, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn' + (i===0?' active':'');
+    btn.textContent = tab;
+    btn.onclick = () => {
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(`tab-${i}`).classList.add('active');
+    };
+    tabsBar.appendChild(btn);
+    // Build panel
+    const panel = document.createElement('div');
+    panel.className = 'tab-panel' + (i===0?' active':'');
+    panel.id = `tab-${i}`;
+    const grid = document.createElement('div');
+    grid.className = 'params-grid';
+    pDef[tab].forEach(field => {
+      const [key, label, unit, req, tooltip, options] = field;
+      const row = document.createElement('div');
+      row.className = 'param-row' + (req?' required':'');
+      const labelDiv = document.createElement('div');
+      labelDiv.className = 'param-label';
+      labelDiv.innerHTML = `<div class="param-name">${label}</div>`+
+        `<div class="param-unit">${unit||''}${req?'':''}</div>`;
+      let input;
+      if (options) {
+        input = document.createElement('select');
+        input.className = 'param-select';
+        options.forEach(opt => {
+          const o = document.createElement('option');
+          o.value = opt; o.textContent = opt;
+          input.appendChild(o);
+        });
+      } else {
+        input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'param-input';
+        input.placeholder = req ? '← required' : 'optional';
+        input.addEventListener('keydown', e => { if (e.key==='Enter') generateModel(); });
+      }
+      currentParams[key] = input;
+      const badge = document.createElement('span');
+      if (req) { badge.className='param-required-badge'; badge.textContent='REQ'; }
+      const infoBtn = document.createElement('button');
+      infoBtn.className = 'info-btn';
+      infoBtn.textContent = 'i';
+      infoBtn.addEventListener('mouseenter', e => showTooltip(tooltip, e));
+      infoBtn.addEventListener('mouseleave', hideTooltip);
+      row.appendChild(labelDiv);
+      row.appendChild(input);
+      if (req) row.appendChild(badge);
+      row.appendChild(infoBtn);
+      grid.appendChild(row);
+    });
+    panel.appendChild(grid);
+    formContent.appendChild(panel);
+  });
+}
+
+function getParams() {
+  const p = {};
+  for (const [key, el] of Object.entries(currentParams)) {
+    p[key] = el.value || (el.tagName==='SELECT' ? el.options[0]?.value : '');
+  }
+  return p;
+}
+
+function generateModel() {
+  if (!currentComp) { showNotif('Select a component first'); return; }
+  const params = getParams();
+  const pn = document.getElementById('part-number').value.trim() || 'COMP';
+  const mfr = document.getElementById('manufacturer').value.trim();
+  const level = parseInt(document.getElementById('model-level').value);
+
+  // Required field validation
+  const pDef = PARAMS[currentComp];
+  if (pDef) {
+    const missing = [];
+    for (const fields of Object.values(pDef)) {
+      for (const [key, label, , req] of fields) {
+        if (req && (!params[key] || params[key].toString().trim() === '')) missing.push(label);
+      }
+    }
+    if (missing.length > 0) {
+      const vs = document.getElementById('validation-msg');
+      vs.style.color = 'var(--error)';
+      vs.textContent = 'Missing required: ' + missing.join(', ');
+      showNotif('Missing: ' + missing.slice(0,2).join(', ') + (missing.length > 2 ? '...' : ''));
+      return;
+    }
+  }
+
+  const [spice, logs] = routeGenerate(currentComp, params, pn, mfr, level);
+  currentSpiceText = spice;
+  // Render SPICE
+  const out = document.getElementById('spice-output');
+  out.innerHTML = `<pre style="margin:0;white-space:pre-wrap;word-break:break-all">${highlight(spice)}</pre>`;
+  const lines = spice.split('\n').length;
+  document.getElementById('line-count').textContent = `${lines} lines`;
+  // Render log
+  const logOut = document.getElementById('log-output');
+  logOut.innerHTML = logs.map(l => {
+    const cls = l.startsWith('✓') ? 'log-ok' : l.startsWith('⚠') ? 'log-warn' : l.startsWith('✗') ? 'log-err' : 'log-info';
+    return `<div class="${cls}">${l}</div>`;
+  }).join('');
+  // Validation
+  const errs = logs.filter(l=>l.startsWith('✗'));
+  const warns = logs.filter(l=>l.startsWith('⚠'));
+  const vs = document.getElementById('validation-msg');
+  if (errs.length) { vs.style.color='var(--error)'; vs.textContent = errs.join(' | '); }
+  else if (warns.length) { vs.style.color='var(--warning)'; vs.textContent = warns.join(' | '); }
+  else { vs.style.color='var(--success)'; vs.textContent = `✓ Model generated — ${logs.filter(l=>l.startsWith('✓')).length} parameters processed`; }
+  showNotif('Model generated!');
+}
+
+function loadExample() {
+  if (!currentComp) { showNotif('Select a component first'); return; }
+  const ex = EXAMPLES[currentComp];
+  if (!ex) { showNotif('No example for this component'); return; }
+  if (ex.part_number) document.getElementById('part-number').value = ex.part_number;
+  if (ex.manufacturer) document.getElementById('manufacturer').value = ex.manufacturer;
+  for (const [key, val] of Object.entries(ex)) {
+    if (currentParams[key]) currentParams[key].value = val;
+  }
+  showNotif('Example loaded');
+}
+
+function copyModel() {
+  if (!currentSpiceText) { showNotif('Generate a model first'); return; }
+  navigator.clipboard.writeText(currentSpiceText).then(()=>showNotif('Copied to clipboard!'));
+}
+
+function downloadLib() {
+  if (!currentSpiceText) { showNotif('Generate a model first'); return; }
+  const pn = document.getElementById('part-number').value||'model';
+  const blob = new Blob([currentSpiceText], {type:'text/plain'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `${pn}.lib`; a.click();
+  showNotif('Downloaded .lib file');
+}
+
+function downloadAsc() {
+  if (!currentSpiceText) { showNotif('Generate a model first'); return; }
+  const pn = document.getElementById('part-number').value||'model';
+  // Simple .asc wrapper
+  const asc = `Version 4\nSHEET 1 880 680\n* Include model file\n.lib ${pn}.lib\n`;
+  const blob = new Blob([asc], {type:'text/plain'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `${pn}.asc`; a.click();
+}
+
+function switchOutputTab(tab, btn) {
+  document.querySelectorAll('.output-tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('spice-output').style.display = tab==='spice'?'block':'none';
+  document.getElementById('log-output').style.display = tab==='log'?'block':'none';
+}
+
+// Tooltip
+function showTooltip(text, e) {
+  const tt = document.getElementById('tooltip');
+  tt.textContent = text;
+  tt.style.left = (e.clientX+12)+'px';
+  tt.style.top = (e.clientY-8)+'px';
+  tt.classList.add('visible');
+}
+function hideTooltip() {
+  document.getElementById('tooltip').classList.remove('visible');
+}
+
+// Notification
+let notifTimer;
+function showNotif(msg) {
+  const el = document.getElementById('notif');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(notifTimer);
+  notifTimer = setTimeout(()=>el.classList.remove('show'), 2000);
+}
+
+// Search
+document.getElementById('search-box').addEventListener('input', e => {
+  buildTree(e.target.value);
+});
+
+// Init
+buildTree();
+// Select first component
+loadComponent('Resistor');
+</script>
+</body>
+</html>
