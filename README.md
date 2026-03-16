@@ -21,6 +21,7 @@ A zero-dependency, single-file HTML tool that turns raw component datasheet numb
 
 ---
 
+
 ## 🗂 Supported Components
 
 ### Passives
